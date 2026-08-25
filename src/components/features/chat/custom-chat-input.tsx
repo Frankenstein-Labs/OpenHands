@@ -5,6 +5,9 @@ import { useGripResize } from "#/hooks/chat/use-grip-resize";
 import { useChatInputEvents } from "#/hooks/chat/use-chat-input-events";
 import { useChatSubmission } from "#/hooks/chat/use-chat-submission";
 import { useSlashCommand } from "#/hooks/chat/use-slash-command";
+import { useChatInputHistory } from "#/hooks/chat/use-chat-input-history";
+import { useOptionalConversationId } from "#/hooks/use-conversation-id";
+import { focusContentEditableAtEnd } from "#/components/features/chat/utils/chat-input.utils";
 import { ChatInputGrip } from "./components/chat-input-grip";
 import { ChatInputContainer } from "./components/chat-input-container";
 import { HiddenFileInput } from "./components/hidden-file-input";
@@ -48,6 +51,12 @@ export function CustomChatInput({
     images,
     files,
   } = useConversationStore();
+  const { conversationId } = useOptionalConversationId();
+  const {
+    record: recordChatHistory,
+    navigate: navigateChatHistory,
+    reset: resetChatHistory,
+  } = useChatInputHistory(conversationId);
 
   // Note: we intentionally do NOT disable the input when the conversation is
   // in an ERROR/STUCK execution state. Users should be able to send a follow-up
@@ -73,9 +82,10 @@ export function CustomChatInput({
     if (!submittedMessage || disabled) {
       return;
     }
+    recordChatHistory(submittedMessage);
     onSubmitRef.current(submittedMessage);
     setSubmittedMessage(null);
-  }, [submittedMessage, disabled, setSubmittedMessage]);
+  }, [submittedMessage, disabled, recordChatHistory, setSubmittedMessage]);
 
   // Custom hooks
   const {
@@ -127,9 +137,20 @@ export function CustomChatInput({
     resetManualResize,
   );
   const handleSubmitAndSync = React.useCallback(() => {
+    const submittedText = chatInputRef.current?.innerText ?? "";
+    if (submittedText.trim()) {
+      recordChatHistory(submittedText);
+    }
+    resetChatHistory();
     handleSubmit();
     syncCanSubmit();
-  }, [handleSubmit, syncCanSubmit]);
+  }, [
+    chatInputRef,
+    handleSubmit,
+    recordChatHistory,
+    resetChatHistory,
+    syncCanSubmit,
+  ]);
 
   const { handleInput, handlePaste, handleKeyDown, handleBlur, handleFocus } =
     useChatInputEvents(
@@ -151,6 +172,46 @@ export function CustomChatInput({
     handleSlashKeyDown,
     closeMenu: closeSlashMenu,
   } = useSlashCommand(chatInputRef as React.RefObject<HTMLDivElement | null>);
+
+  const handleHistoryKeyDown = React.useCallback(
+    (event: React.KeyboardEvent): boolean => {
+      if (
+        isDisabled ||
+        event.nativeEvent.isComposing ||
+        event.shiftKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+      ) {
+        return false;
+      }
+
+      const direction = event.key === "ArrowUp" ? "backward" : "forward";
+      const nextMessage = navigateChatHistory(chatInputRef.current, direction);
+      if (nextMessage === undefined) return false;
+
+      event.preventDefault();
+      if (chatInputRef.current) {
+        chatInputRef.current.textContent = nextMessage;
+        focusContentEditableAtEnd(chatInputRef.current);
+        handleInput();
+        updateSlashMenu();
+        saveDraft();
+        syncCanSubmit();
+      }
+      return true;
+    },
+    [
+      chatInputRef,
+      handleInput,
+      isDisabled,
+      navigateChatHistory,
+      saveDraft,
+      syncCanSubmit,
+      updateSlashMenu,
+    ],
+  );
 
   // Cleanup: reset suggestions visibility when component unmounts
   useEffect(
@@ -199,6 +260,7 @@ export function CustomChatInput({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onInput={() => {
+            resetChatHistory();
             handleInput();
             updateSlashMenu();
             saveDraft();
@@ -207,6 +269,7 @@ export function CustomChatInput({
           onPaste={handlePaste}
           onKeyDown={(e) => {
             if (handleSlashKeyDown(e)) return;
+            if (handleHistoryKeyDown(e)) return;
             handleKeyDown(e, isDisabled, handleSubmitAndSync);
           }}
           onFocus={handleFocus}
