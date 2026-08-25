@@ -921,9 +921,12 @@ function buildConfiguredOpenHandsAgentSettings(
       ? llm.model
       : DEFAULT_SETTINGS.llm_model;
 
-  // Stream assistant tokens (parity with ACP agents). The agent-server only
-  // emits StreamingDeltaEvents for SDK LLM agents when an LLM has stream=True.
-  llm.stream = true;
+  // Stream assistant tokens by default (parity with ACP agents), but preserve
+  // an explicit opt-out. Some OpenAI-compatible proxies, including the real
+  // Canvas E2E proxy, support native tool calls only with stream=false. The
+  // Agent Server wires token callbacks only when streaming is enabled, so the
+  // SDK safely returns a complete message when streaming is disabled.
+  llm.stream = typeof llm.stream === "boolean" ? llm.stream : true;
 
   const apiKey = normalizeSecretString(llm.api_key);
   if (apiKey) {
@@ -1090,8 +1093,13 @@ export function buildStartConversationRequest(
     : options.settings;
 
   const acpMode = isAcpAgent(sourceAgentSettings);
+  // A profile launch should always carry its agent kind. Older Canvas callers
+  // (and persisted resume paths) may omit it, however; treating an omitted kind
+  // as "no tools" silently removes native client tools from an OpenHands
+  // conversation. Preserve an explicitly active ACP mode, otherwise use the
+  // OpenHands default so `launch_child_conversation` remains registered.
   const launchAgentKind = options.agentProfileId
-    ? options.agentProfileKind
+    ? (options.agentProfileKind ?? (acpMode ? "acp" : "openhands"))
     : acpMode
       ? "acp"
       : "openhands";

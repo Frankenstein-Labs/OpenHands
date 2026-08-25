@@ -183,6 +183,10 @@ preferred writer isolation: local git worktree or Cloud sandbox
 
 A local child defaults to a new git worktree when the parent workspace can support one. A shared child is allowed only when the task genuinely needs to see the parent’s exact in-progress files; because it shares the directory, only one shared launch may be provisioned at a time. When a limit is reached, the tool returns corrective guidance to the parent agent instead of silently launching more workers.
 
+### Mono-writer integration
+
+Child agents never write to the canonical branch. Each writing child works in an isolated worktree and returns a structured proposal containing its base commit, commit SHA, changed paths, tests, and summary. The parent’s mono-writer integration queue serializes proposals, rejects stale bases, forbidden paths, duplicate commits, and active path overlaps, and issues a monotonically increasing fencing token for every accepted integration. The queue does not perform an implicit merge or conflict resolution: the single integrator must recreate an integration worktree, replay the proposal, run lint, typecheck, tests, build, and the real runtime check, then publish and refresh Live Preview only after success. A conflict or failed validation stops that proposal and leaves the canonical branch untouched.
+
 These limits protect the real launch/provisioning boundary and prevent an agent from multiplying sessions or provisioning several shared writers at once. The current limiter is intentionally process-local and bounds concurrent launches, not the complete lifetime of every child conversation. A future durable orchestration service should extend this with persisted task states, active-worker accounting, budgets, cancellation, retries and cross-process quotas before enabling large Cloud fan-out.
 
 # Architecture

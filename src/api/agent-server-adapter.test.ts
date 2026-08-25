@@ -278,6 +278,38 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
     ]);
   });
 
+  it("preserves an explicit non-streaming LLM configuration", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({
+        agent_kind: "openhands",
+        llm: {
+          model: "litellm_proxy/openai/gpt-5.5",
+          api_key: "sk-test",
+          stream: false,
+        },
+      }),
+    });
+
+    expect(
+      (payload.agent_settings?.llm as { stream?: boolean } | undefined)?.stream,
+    ).toBe(false);
+  });
+
+  it("defaults an untyped profile launch to OpenHands client tools", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({
+        agent_kind: "openhands",
+        llm: { model: "litellm_proxy/openai/gpt-5.5", api_key: "sk-test" },
+      }),
+      agentProfileId: "profile-legacy",
+    });
+
+    expect(payload.client_tools.map((tool) => tool.name)).toEqual([
+      CANVAS_UI_CLIENT_TOOL_NAME,
+      LAUNCH_CHILD_CONVERSATION_TOOL_NAME,
+    ]);
+  });
+
   it("suppresses the ACP server tag when launching from a profile", () => {
     const agentSettings = {
       agent_kind: "acp",
