@@ -33,8 +33,12 @@ Writing the task brief:
 
 * Put everything the child needs in "task": the goal, the relevant file paths,
   the constraints, the expected deliverable, and how it should report back.
-* Keep each child's scope independent of its siblings so parallel children do
-  not fight over the same files.
+* Keep each child's scope independent of its siblings so
+  parallel children do not fight over the same files.
+* OpenHands provisions at most four child launches for one parent at a time,
+  and only one \`isolation="shared"\` launch at a time. Prefer \`worktree\` for
+  independent writers; if the launch is throttled, wait for the reported result
+  before delegating more work.
 * One call per delegated task. Do NOT call this tool twice for the same task.
 
 Parameter rules (a call that breaks one of these launches nothing and comes

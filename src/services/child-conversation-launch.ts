@@ -26,6 +26,10 @@ import {
   type ChildConversationTarget,
 } from "#/constants/child-conversation";
 import { useGoalStore } from "#/stores/goal-store";
+import {
+  acquireChildConversationLaunchSlot,
+  type ChildConversationLaunchDecision,
+} from "#/services/child-conversation-launch-limiter";
 import type { LaunchChildConversationAction } from "#/types/agent-server/core";
 import { buildAgentCanvasPath } from "#/utils/base-path";
 import {
@@ -514,16 +518,31 @@ export async function handleLaunchChildConversationAction(
   if (!validation.ok) {
     result = validation.failure;
   } else {
-    try {
-      result =
-        validation.params.target === "cloud"
-          ? await launchCloudChild(validation.params, parentConversationId)
-          : await launchLocalChild(validation.params, parentConversationId);
-    } catch (error) {
-      result = failure(
-        error instanceof Error ? error.message : String(error),
-        "The launch request failed. Report the error to the user; retry only if the cause looks transient.",
+    const launchSlot: ChildConversationLaunchDecision =
+      acquireChildConversationLaunchSlot(
+        parentConversationId,
+        validation.params.isolation,
       );
+
+    if (!launchSlot.ok) {
+      result = failure(
+        `Child launch throttled (${launchSlot.reason}).`,
+        launchSlot.guidance,
+      );
+    } else {
+      try {
+        result =
+          validation.params.target === "cloud"
+            ? await launchCloudChild(validation.params, parentConversationId)
+            : await launchLocalChild(validation.params, parentConversationId);
+      } catch (error) {
+        result = failure(
+          error instanceof Error ? error.message : String(error),
+          "The launch request failed. Report the error to the user; retry only if the cause looks transient.",
+        );
+      } finally {
+        launchSlot.release();
+      }
     }
   }
 

@@ -168,6 +168,23 @@ For a single sandbox using host networking, OpenHands documents fixed service po
 
 A static frontend build alone is not sufficient for the full experience. A permanent deployment needs the Agent Canvas web server, an Agent Server backend, a workspace-capable sandbox, and a reverse proxy that can reach the sandbox’s forwarded worker URLs. See [SELF_HOSTING.md](docs/SELF_HOSTING.md) for security hardening and [Configuration Options](https://docs.openhands.dev/openhands/usage/advanced/configuration-options) for the sandbox URL configuration.
 
+## Multi-agent child orchestration guardrails
+
+OpenHands already supports the real `launch_child_conversation` client tool. The parent agent can delegate a self-contained task to a local child conversation or to an isolated Cloud conversation, and the existing launch path records an idempotency ledger so replayed tool events do not start the same child twice.
+
+The launch boundary now applies bounded fan-out guardrails before provisioning a child:
+
+```text
+maximum concurrent child launches per parent: 4
+maximum concurrent shared-workspace launches: 1
+maximum launches per parent per 60 seconds: 8
+preferred writer isolation: local git worktree or Cloud sandbox
+```
+
+A local child defaults to a new git worktree when the parent workspace can support one. A shared child is allowed only when the task genuinely needs to see the parent’s exact in-progress files; because it shares the directory, only one shared launch may be provisioned at a time. When a limit is reached, the tool returns corrective guidance to the parent agent instead of silently launching more workers.
+
+These limits protect the real launch/provisioning boundary and prevent an agent from multiplying sessions or provisioning several shared writers at once. The current limiter is intentionally process-local and bounds concurrent launches, not the complete lifetime of every child conversation. A future durable orchestration service should extend this with persisted task states, active-worker accounting, budgets, cancellation, retries and cross-process quotas before enabling large Cloud fan-out.
+
 # Architecture
 
 Agent Canvas is powered by the [OpenHands Agent Server](https://github.com/OpenHands/software-agent-sdk/tree/main/openhands-agent-server/openhands/agent_server), a REST API for running multiple agents on a single machine. Each Agent Server runs on a single host/port; the Agent Canvas can connect to multiple Agent Servers and easily flip between them.

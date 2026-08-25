@@ -13,6 +13,7 @@ import {
   handleLaunchChildConversationAction,
   type LaunchChildConversationResult,
 } from "#/services/child-conversation-launch";
+import { resetChildConversationLaunchLimiterForTests } from "#/services/child-conversation-launch-limiter";
 
 const {
   mockCreateConversation,
@@ -122,6 +123,7 @@ function seedWorktreeCapableParent() {
 describe("handleLaunchChildConversationAction", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    resetChildConversationLaunchLimiterForTests();
     useGoalStore.setState({ statusByConversation: {} });
     vi.clearAllMocks();
     mockResolveWorkingDir.mockResolvedValue("/Users/jane/projects/foo");
