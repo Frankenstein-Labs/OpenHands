@@ -150,16 +150,19 @@ class EventService {
         if (!hasFilterParams) throw err;
         if (options.strictPagination) throw err;
 
-        // Server doesn't support timestamp filters yet — stop pagination
-        // by returning an empty page so the UI doesn't retry indefinitely.
-        // A limit-only fallback would return the same most-recent events
-        // already in the store, which get deduped but keep hasMore=true.
+        // Server doesn't support timestamp filters yet. Preserve the existing
+        // safe stop, but make the partial-history condition explicit so callers
+        // do not mistake an empty fallback page for end-of-history.
         console.warn(
           "[EventService] Cloud backend doesn't support pagination filters. " +
             "Falling back to initial load only. " +
             "Server needs OpenHands/OpenHands#14399.",
         );
-        return { items: [], next_page_id: null };
+        return {
+          items: [],
+          next_page_id: null,
+          pagination_unavailable: true,
+        };
       }
     }
 

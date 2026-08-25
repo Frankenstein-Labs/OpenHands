@@ -291,7 +291,9 @@ describe("useLoadOlderEvents", () => {
     expect(result.current.isLoading).toBe(true);
 
     await act(async () => {
-      resolvePage(makePage([makeEvent("evt-older", "2024-05-01T00:00:00Z")], null));
+      resolvePage(
+        makePage([makeEvent("evt-older", "2024-05-01T00:00:00Z")], null),
+      );
       await Promise.all([firstLoad, secondLoad]);
     });
 
@@ -434,5 +436,55 @@ describe("useLoadOlderEvents", () => {
     });
 
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLoadOlderEvents pagination diagnostics", () => {
+  it("surfaces an unavailable pagination response instead of treating it as exhaustion", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        children,
+      );
+
+    act(() => {
+      useEventStore.getState().clearEvents();
+      useEventStore
+        .getState()
+        .addEvent(makeEvent("evt-recent", "2026-08-25T10:00:00.000Z"));
+    });
+
+    vi.mocked(useUserConversation).mockReturnValue({
+      data: makeConversation(),
+      isLoading: false,
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserConversation>);
+    vi.mocked(useConversationHistory).mockReturnValue({
+      data: undefined,
+      isFetched: false,
+    } as ReturnType<typeof useConversationHistory>);
+    vi.spyOn(EventService, "searchEvents").mockResolvedValue({
+      items: [],
+      next_page_id: null,
+      pagination_unavailable: true,
+    });
+
+    const { result } = renderHook(() => useLoadOlderEvents("conv-diagnostic"), {
+      wrapper,
+    });
+
+    await expect(result.current.loadOlder()).rejects.toThrow(
+      "Older conversation history is unavailable because the server does not support timestamp pagination.",
+    );
+    await waitFor(() => expect(result.current.hasMore).toBe(false));
+
+    queryClient.clear();
   });
 });

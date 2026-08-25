@@ -25,6 +25,10 @@ import { useSendMessage } from "#/hooks/use-send-message";
 import { useAgentState } from "#/hooks/use-agent-state";
 import { useIsArchivedConversation } from "#/hooks/use-is-archived-conversation";
 import { useHandleBuildPlanClick } from "#/hooks/use-handle-build-plan-click";
+import {
+  getConversationResumeState,
+  setConversationReadPosition,
+} from "#/api/conversation-resume-store";
 
 import { ScrollToBottomButton } from "#/components/shared/buttons/scroll-to-bottom-button";
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
@@ -100,6 +104,7 @@ export function ChatInterface() {
     (state) => state.pendingMessages,
   );
   const { t } = useTranslation("openhands");
+  const { conversationId } = useOptionalConversationId();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const {
     scrollDomToBottom,
@@ -109,6 +114,67 @@ export function ChatInterface() {
     setAutoScroll,
     setHitBottom,
   } = useScrollToBottom(scrollRef);
+  const lastObservedScrollTopRef = React.useRef<number | null>(null);
+  const scrollPersistenceTimerRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const restoredScrollForConversationRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    restoredScrollForConversationRef.current = null;
+    lastObservedScrollTopRef.current = null;
+
+    return () => {
+      if (scrollPersistenceTimerRef.current !== null) {
+        clearTimeout(scrollPersistenceTimerRef.current);
+        scrollPersistenceTimerRef.current = null;
+      }
+      if (conversationId && lastObservedScrollTopRef.current !== null) {
+        setConversationReadPosition(
+          conversationId,
+          lastObservedScrollTopRef.current,
+        );
+      }
+    };
+  }, [conversationId]);
+
+  // Restore the last known reading position only after the initial REST tail
+  // is available. The event history remains server-authoritative; this is a
+  // best-effort viewport restore for returning users.
+  React.useEffect(() => {
+    if (
+      !conversationId ||
+      conversationWebSocket?.isLoadingHistory ||
+      restoredScrollForConversationRef.current === conversationId
+    ) {
+      return;
+    }
+
+    const target = scrollRef.current;
+    if (!target) return;
+
+    const savedScrollTop =
+      getConversationResumeState(conversationId).lastReadScrollTop;
+    restoredScrollForConversationRef.current = conversationId;
+    if (savedScrollTop === null) return;
+
+    requestAnimationFrame(() => {
+      const dom = scrollRef.current;
+      if (!dom) return;
+      const maxScrollTop = Math.max(0, dom.scrollHeight - dom.clientHeight);
+      dom.scrollTop = Math.max(0, Math.min(savedScrollTop, maxScrollTop));
+      const restoredAtBottom =
+        dom.scrollTop + dom.clientHeight >= dom.scrollHeight - 20;
+      setHitBottom(restoredAtBottom);
+      setAutoScroll(restoredAtBottom);
+    });
+  }, [
+    conversationId,
+    conversationWebSocket?.isLoadingHistory,
+    renderableEvents.length,
+    setAutoScroll,
+    setHitBottom,
+  ]);
   const {
     mutate: newConversationCommand,
     isPending: isNewConversationPending,
@@ -170,7 +236,6 @@ export function ChatInterface() {
   ]);
 
   const { selectedRepository, replayJson } = useInitialQueryStore();
-  const { conversationId } = useOptionalConversationId();
 
   // The live goal banner renders in the scroll stream but advances via store
   // updates (in-progress goal events are filtered out of `renderableEvents`),
@@ -520,6 +585,21 @@ export function ChatInterface() {
             data-testid="chat-scroll-container"
             onScroll={(e) => {
               onChatBodyScroll(e.currentTarget);
+              lastObservedScrollTopRef.current = e.currentTarget.scrollTop;
+              if (conversationId) {
+                if (scrollPersistenceTimerRef.current !== null) {
+                  clearTimeout(scrollPersistenceTimerRef.current);
+                }
+                scrollPersistenceTimerRef.current = setTimeout(() => {
+                  if (lastObservedScrollTopRef.current !== null) {
+                    setConversationReadPosition(
+                      conversationId,
+                      lastObservedScrollTopRef.current,
+                    );
+                  }
+                  scrollPersistenceTimerRef.current = null;
+                }, 200);
+              }
               maybeLoadOlder(e.currentTarget);
             }}
             onWheel={handleWheelForPagination}
