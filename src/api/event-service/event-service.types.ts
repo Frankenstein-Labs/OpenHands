@@ -31,4 +31,6 @@ export interface EventSearchOptions {
 export interface EventSearchPage<TEvent> {
   items: TEvent[];
   next_page_id?: string | null;
+  /** True when the backend could not honor a filtered pagination request. */
+  pagination_unavailable?: boolean;
 }

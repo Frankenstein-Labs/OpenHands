@@ -855,3 +855,80 @@ describe("useWebSocket", () => {
     expect(sendSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("useWebSocket dynamic query parameters", () => {
+  it("recomputes query parameters on manual reconnect", async () => {
+    class MockWebSocket {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSING = 2;
+      static readonly CLOSED = 3;
+      static instances: MockWebSocket[] = [];
+
+      readonly url: string;
+      readyState = MockWebSocket.CONNECTING;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onclose: ((event: CloseEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+
+      constructor(url: string) {
+        this.url = url;
+        MockWebSocket.instances.push(this);
+        queueMicrotask(() => {
+          this.readyState = MockWebSocket.OPEN;
+          this.onopen?.(new Event("open"));
+        });
+      }
+
+      send() {}
+
+      close() {
+        this.readyState = MockWebSocket.CLOSED;
+        this.onclose?.(
+          new CloseEvent("close", {
+            code: 1000,
+            reason: "Normal closure",
+            wasClean: true,
+          }),
+        );
+      }
+    }
+
+    const originalWebSocket = globalThis.WebSocket;
+    vi.stubGlobal("WebSocket", MockWebSocket);
+
+    try {
+      let cursor = "2026-08-25T10:00:00.000Z";
+      const { result, unmount } = renderHook(() =>
+        useWebSocket("ws://acme.com/ws", {
+          queryParams: { resend_mode: "since" },
+          getQueryParams: () => ({
+            resend_mode: "since",
+            after_timestamp: cursor,
+          }),
+        }),
+      );
+
+      await waitFor(() => expect(result.current.isConnected).toBe(true));
+      expect(MockWebSocket.instances[0].url).toContain(
+        "after_timestamp=2026-08-25T10%3A00%3A00.000Z",
+      );
+
+      cursor = "2026-08-25T11:00:00.000Z";
+      act(() => {
+        result.current.reconnect();
+      });
+
+      await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2));
+      expect(MockWebSocket.instances[1].url).toContain(
+        "after_timestamp=2026-08-25T11%3A00%3A00.000Z",
+      );
+
+      unmount();
+    } finally {
+      globalThis.WebSocket = originalWebSocket;
+      MockWebSocket.instances = [];
+    }
+  });
+});

@@ -139,6 +139,14 @@ export const useLoadOlderEvents = (
         );
       }
 
+      if (page.pagination_unavailable) {
+        hasMoreRef.current = false;
+        setHasMore(false);
+        throw new Error(
+          "Older conversation history is unavailable because the server does not support timestamp pagination.",
+        );
+      }
+
       const older = [...page.items].reverse();
       if (older.length > 0) {
         addEvents(older);

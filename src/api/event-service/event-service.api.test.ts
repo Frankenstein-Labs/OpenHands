@@ -48,7 +48,11 @@ describe("EventService.searchEvents strict pagination", () => {
         limit: 50,
         timestampLt: "2026-07-10T12:34:56.000Z",
       }),
-    ).resolves.toEqual({ items: [], next_page_id: null });
+    ).resolves.toEqual({
+      items: [],
+      next_page_id: null,
+      pagination_unavailable: true,
+    });
 
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();

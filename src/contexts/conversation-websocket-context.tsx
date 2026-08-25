@@ -78,6 +78,10 @@ import {
   getStoredConversationMetadata,
   setStoredConversationMetadata,
 } from "#/api/conversation-metadata-store";
+import {
+  getConversationResumeState,
+  setConversationResumeState,
+} from "#/api/conversation-resume-store";
 
 export type WebSocketConnectionState =
   | "CONNECTING"
@@ -275,6 +279,28 @@ export function ConversationWebSocketProvider({
     [],
   );
 
+  const hydrateConversationStateFromHistory = useCallback(
+    (events: Array<import("#/types/agent-server/core").OpenHandsEvent>) => {
+      for (const event of events) {
+        if (!isConversationStateUpdateEvent(event)) continue;
+
+        if (isFullStateConversationStateUpdateEvent(event)) {
+          setExecutionStatus(event.value.execution_status);
+        }
+        if (isAgentStatusConversationStateUpdateEvent(event)) {
+          setExecutionStatus(event.value);
+        }
+        if (isStatsConversationStateUpdateEvent(event)) {
+          updateMetricsFromStats(event);
+        }
+        if (conversationId && isGoalConversationStateUpdateEvent(event)) {
+          useGoalStore.getState().setStatus(conversationId, event.value);
+        }
+      }
+    },
+    [conversationId, setExecutionStatus, updateMetricsFromStats],
+  );
+
   // Initial REST history load: fetch the most recent events and seed the
   // store. Older events are paginated in via `useLoadOlderEvents` when the
   // user scrolls to the top of the chat. The WebSocket connection waits for
@@ -289,6 +315,67 @@ export function ConversationWebSocketProvider({
   // background — the socket gate below also keys on `isPending`, so that
   // refetch never drops a live socket.
   const isLoadingHistoryMain = !!conversationId && isPreloadingHistory;
+
+  // Keep a durable, conversation-scoped replay cursor without writing to
+  // localStorage for every streamed event. The server remains authoritative;
+  // this cursor only lets a reconnect ask for the newest known tail.
+  const latestMainResumeRef = useRef<
+    Record<
+      string,
+      {
+        eventId: string | number | null;
+        timestamp: string;
+      }
+    >
+  >({});
+  const resumeWriteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const flushMainResumeCursor = useCallback(() => {
+    if (!conversationId) return;
+    const cursor = latestMainResumeRef.current[conversationId];
+    if (!cursor) return;
+    const { eventId, timestamp } = cursor;
+    setConversationResumeState(conversationId, {
+      lastEventId: eventId,
+      lastEventTimestamp: timestamp,
+    });
+    resumeWriteTimerRef.current = null;
+  }, [conversationId]);
+
+  const rememberMainEvent = useCallback(
+    (event: { id?: string | number; timestamp?: string }) => {
+      if (!conversationId || !event.timestamp) return;
+      const current = latestMainResumeRef.current[conversationId];
+      const persisted = getConversationResumeState(conversationId);
+      const baselineTimestamp =
+        current?.timestamp ?? persisted.lastEventTimestamp;
+      if (baselineTimestamp && event.timestamp <= baselineTimestamp) return;
+
+      latestMainResumeRef.current[conversationId] = {
+        eventId: event.id ?? null,
+        timestamp: event.timestamp,
+      };
+      if (resumeWriteTimerRef.current !== null) return;
+
+      resumeWriteTimerRef.current = setTimeout(() => {
+        flushMainResumeCursor();
+      }, 250);
+    },
+    [conversationId, flushMainResumeCursor],
+  );
+
+  React.useEffect(
+    () => () => {
+      flushMainResumeCursor();
+      if (resumeWriteTimerRef.current !== null) {
+        clearTimeout(resumeWriteTimerRef.current);
+        resumeWriteTimerRef.current = null;
+      }
+    },
+    [conversationId, flushMainResumeCursor],
+  );
 
   // Clear the (global, not conversation-scoped) event store when the active
   // conversation changes, BEFORE the preloaded-history effect below re-seeds
@@ -322,6 +409,11 @@ export function ConversationWebSocketProvider({
       return;
     }
     addEvents(preloadedHistory.events);
+    hydrateConversationStateFromHistory(preloadedHistory.events);
+    const latestPreloadedEvent = preloadedHistory.events.at(-1);
+    if (latestPreloadedEvent && "timestamp" in latestPreloadedEvent) {
+      rememberMainEvent(latestPreloadedEvent);
+    }
 
     // The first user message of a cloud start-task conversation is persisted
     // server-side and reaches us via this REST preload, not over the WebSocket
@@ -354,6 +446,8 @@ export function ConversationWebSocketProvider({
     addEvents,
     conversationId,
     consumeMatchingPendingMessage,
+    rememberMainEvent,
+    hydrateConversationStateFromHistory,
   ]);
 
   /**
@@ -563,6 +657,9 @@ export function ConversationWebSocketProvider({
             ? event
             : null;
           addEvent(event);
+          if (!isDuplicateEvent && "timestamp" in event) {
+            rememberMainEvent(event);
+          }
           if (isDuplicateEvent) {
             return;
           }
@@ -754,6 +851,7 @@ export function ConversationWebSocketProvider({
       appendOutput,
       updateMetricsFromStats,
       handleNonErrorEvent,
+      rememberMainEvent,
     ],
   );
 
@@ -962,18 +1060,33 @@ export function ConversationWebSocketProvider({
 
   // Separate WebSocket options for main connection
   const mainWebsocketOptions: WebSocketHookOptions = useMemo(() => {
-    // History was already loaded over REST (`useConversationHistory`).
-    // Subscribe with `resend_mode='since'` so the server only resends events
-    // strictly after the latest one we already have. If REST returned no
-    // events at all (brand-new conversation), fall back to `'all'` so any
-    // events that may have been written between the REST call and the WS
-    // handshake still show up. Dedup in the event store handles overlap.
-    const queryParams: Record<string, string | boolean> = initialAfterTimestamp
-      ? { resend_mode: "since", after_timestamp: initialAfterTimestamp }
-      : { resend_mode: "all" };
+    // Evaluate the replay anchor for the first socket and every reconnect. The
+    // in-memory cursor is preferred, then the durable cursor, then the REST
+    // tail. This preserves the current REST + `since` protocol while avoiding
+    // reconnects from replaying from a stale initial timestamp.
+    const getMainReplayParams = (): Record<string, string | boolean> => {
+      const persisted = conversationId
+        ? getConversationResumeState(conversationId)
+        : null;
+      const timestamps = [
+        initialAfterTimestamp,
+        persisted?.lastEventTimestamp ?? null,
+        (conversationId
+          ? latestMainResumeRef.current[conversationId]?.timestamp
+          : null) ?? null,
+      ].filter((timestamp): timestamp is string => Boolean(timestamp));
+      const latestTimestamp = timestamps.sort().at(-1);
+
+      return latestTimestamp
+        ? { resend_mode: "since", after_timestamp: latestTimestamp }
+        : { resend_mode: "all" };
+    };
+
+    const queryParams = getMainReplayParams();
 
     return {
       queryParams,
+      getQueryParams: getMainReplayParams,
       sessionApiKey,
       reconnect: { enabled: true },
       onOpen: () => {
@@ -999,6 +1112,7 @@ export function ConversationWebSocketProvider({
     clearConnectionError,
     sessionApiKey,
     initialAfterTimestamp,
+    conversationId,
   ]);
 
   // Separate WebSocket options for planning agent connection

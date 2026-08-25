@@ -4,6 +4,8 @@ import { startHandshakeWatchdog } from "#/utils/websocket-handshake";
 
 export interface WebSocketHookOptions {
   queryParams?: Record<string, string | boolean>;
+  /** Recompute query parameters for every new socket, including reconnects. */
+  getQueryParams?: () => Record<string, string | boolean>;
   sessionApiKey?: string | null;
   onOpen?: (event: Event) => void;
   onClose?: (event: CloseEvent) => void;
@@ -37,12 +39,13 @@ export const useWebSocket = (url: string, options?: WebSocketHookOptions) => {
   }, [options]);
 
   const connectWebSocket = React.useCallback(() => {
-    // Build URL with query parameters if provided
+    // Build URL with query parameters if provided. `getQueryParams` lets
+    // reconnects use a fresh replay cursor without tearing down the hook.
     let wsUrl = url;
-    if (optionsRef.current?.queryParams) {
-      const stringParams = Object.entries(
-        optionsRef.current.queryParams,
-      ).reduce(
+    const queryParams =
+      optionsRef.current?.getQueryParams?.() ?? optionsRef.current?.queryParams;
+    if (queryParams) {
+      const stringParams = Object.entries(queryParams).reduce(
         (acc, [key, value]) => {
           acc[key] = String(value);
           return acc;
