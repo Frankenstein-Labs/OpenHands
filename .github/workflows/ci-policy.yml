@@ -1,0 +1,45 @@
+name: CI policy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-ci-only:
+    name: Verify CI-only workflows
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Reject production deployment authority in CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow_files=()
+          while IFS= read -r -d '' file; do
+            workflow_files+=("$file")
+          done < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) ! -name 'ci-policy.yml' -print0)
+
+          if ((${#workflow_files[@]} == 0)); then
+            echo "No workflow files found."
+            exit 0
+          fi
+
+          if grep -nE 'vercel[[:space:]]+deploy|npx[[:space:]]+vercel|VERCEL_TOKEN|VERCEL_ORG_ID|VERCEL_PROJECT_ID' "${workflow_files[@]}"; then
+            echo '::error::A CI workflow contains Vercel deployment authority.'
+            echo 'Keep GitHub Actions CI-only and let Vercel deploy through its native Git integration.'
+            exit 1
+          fi
+
+          echo 'All checked workflows are CI-only with respect to Vercel.'
