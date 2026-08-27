@@ -114,11 +114,12 @@ export default function MainApp() {
         <div
           data-testid="root-layout"
           className="h-screen lg:min-w-5xl flex flex-col md:flex-row bg-base overflow-hidden p-0"
+          data-ui-shell="open-webui"
         >
           <title>{appTitle}</title>
           <Sidebar />
 
-          <div className="flex min-h-0 flex-col w-full min-w-0 h-full gap-3">
+          <div className="flex min-h-0 flex-col w-full min-w-0 h-full">
             {!hideMobileSidebarMenuBar ? <SidebarMobileMenuBar /> : null}
             {config.data &&
               (config.data.maintenance_start_time ||
@@ -136,7 +137,7 @@ export default function MainApp() {
               )}
             <div
               id="root-outlet"
-              className="relative flex-1 overflow-auto px-0 custom-scrollbar"
+              className="relative flex-1 overflow-auto px-0 custom-scrollbar bg-base"
             >
               <Outlet />
             </div>

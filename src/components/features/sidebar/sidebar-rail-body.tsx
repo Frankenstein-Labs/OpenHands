@@ -1,9 +1,11 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Bot,
   ChevronLeft,
   ChevronRight,
   Plus,
+  Puzzle,
   Server,
   Settings,
 } from "lucide-react";
@@ -109,6 +111,14 @@ export function SidebarRailBody({
               logoClassName="max-w-none"
               className={cn(SIDEBAR_ICON_SLOT_CLASS, "overflow-visible")}
             />
+            {!collapsed ? (
+              <span
+                data-testid="opendevine-wordmark"
+                className="ml-2 min-w-0 truncate text-sm font-medium tracking-tight text-[var(--oh-foreground)]"
+              >
+                {t(I18nKey.BRANDING$OPENDEVINE)}
+              </span>
+            ) : null}
           </div>
           {collapsed && showCollapseToggle ? (
             <button
@@ -204,6 +214,20 @@ export function SidebarRailBody({
               <path d="M12 13.5V8" />
             </svg>
           }
+        />
+        <SidebarNavLink
+          to="/settings/agents"
+          label={t(I18nKey.SETTINGS$NAV_AGENT_PROFILES)}
+          testId="sidebar-agents-link"
+          collapsed={collapsed}
+          icon={<Bot width={ICON_SIZE} height={ICON_SIZE} />}
+        />
+        <SidebarNavLink
+          to="/mcp"
+          label={t(I18nKey.SIDEBAR$MCP_DIRECTORY)}
+          testId="sidebar-mcp-link"
+          collapsed={collapsed}
+          icon={<Puzzle width={ICON_SIZE} height={ICON_SIZE} />}
         />
         {/* The interface manifest owns this entry's label, so an absent
             manifest leaves the rail without it rather than with host copy. */}

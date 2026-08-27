@@ -7054,6 +7054,23 @@
     "uk": "OpenHands",
     "ca": "OpenHands"
   },
+  "BRANDING$OPENDEVINE": {
+    "en": "OpenDevine",
+    "ja": "OpenDevine",
+    "zh-CN": "OpenDevine",
+    "zh-TW": "OpenDevine",
+    "ko-KR": "OpenDevine",
+    "de": "OpenDevine",
+    "no": "OpenDevine",
+    "it": "OpenDevine",
+    "pt": "OpenDevine",
+    "es": "OpenDevine",
+    "ar": "OpenDevine",
+    "fr": "OpenDevine",
+    "tr": "OpenDevine",
+    "uk": "OpenDevine",
+    "ca": "OpenDevine"
+  },
   "BRANDING$OPENHANDS_LOGO": {
     "en": "OpenHands Logo",
     "ja": "OpenHandsロゴ",
