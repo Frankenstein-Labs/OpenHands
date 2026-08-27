@@ -66,9 +66,10 @@ export function ChatInputContainer({
   return (
     <div
       ref={chatContainerRef}
+      data-ui-surface="open-webui-composer"
       className={cn(
-        "bg-[var(--oh-surface)] box-border content-stretch flex flex-col items-start justify-center p-4 relative rounded-[15px] w-full",
-        conversationMode === "plan" && "border border-[#597FF4]",
+        "box-border content-stretch flex flex-col items-start justify-center gap-2 border border-[var(--oh-border-subtle)] bg-[var(--oh-surface)] p-3.5 relative rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-colors duration-200 focus-within:border-[var(--oh-border)]",
+        conversationMode === "plan" && "border-[#597FF4]",
       )}
       onDragOver={(e) => onDragOver(e, disabled)}
       onDragLeave={(e) => onDragLeave(e, disabled)}

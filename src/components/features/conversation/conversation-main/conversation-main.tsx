@@ -83,8 +83,9 @@ export function ConversationMain() {
         >
           <div
             data-testid="chat-pane-header"
+            data-ui-surface="open-webui-chat-header"
             className={cn(
-              "flex h-10 min-h-10 shrink-0 items-center",
+              "flex h-12 min-h-12 shrink-0 items-center border-b border-[var(--oh-border-subtle)] px-3 transition-colors duration-200",
               isSidebarRailHidden && "gap-2 pl-2.5",
             )}
           >
