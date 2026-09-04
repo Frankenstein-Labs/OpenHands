@@ -48,6 +48,17 @@ describe("Telegram webhook", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does not process updates when no allowed chat is configured", async () => {
+    configureEnvironment();
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_ID", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await processTelegramUpdate(update("Analyse le repository"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("creates a Cloud conversation and sends its assistant response to Telegram", async () => {
     configureEnvironment();
     const fetchMock: FetchMock = vi.fn(

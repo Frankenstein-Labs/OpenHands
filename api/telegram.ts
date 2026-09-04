@@ -101,6 +101,11 @@ function allowedChatId(): string | undefined {
   return env("TELEGRAM_ALLOWED_CHAT_ID");
 }
 
+function isAllowedChatId(chatId: string): boolean {
+  const configuredChatId = allowedChatId();
+  return Boolean(configuredChatId && configuredChatId === chatId);
+}
+
 function headerValue(
   request: TelegramRequest,
   name: string,
@@ -539,8 +544,7 @@ export async function processTelegramUpdate(
   const chatId = telegramChatId(update);
   const text = update.message?.text?.trim();
   if (!chatId || !text) return;
-  const configuredChatId = allowedChatId();
-  if (configuredChatId && configuredChatId !== chatId) return;
+  if (!isAllowedChatId(chatId)) return;
   await processMessage(chatId, text);
 }
 
@@ -566,7 +570,7 @@ export default async function handler(
   }
 
   const chatId = telegramChatId(update);
-  if (chatId && (!allowedChatId() || allowedChatId() === chatId)) {
+  if (chatId && isAllowedChatId(chatId)) {
     waitUntil(
       processTelegramUpdate(update).catch(async (error: unknown) => {
         try {

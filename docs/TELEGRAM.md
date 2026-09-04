@@ -6,16 +6,16 @@ Cette intégration ajoute un webhook Vercel minimal : Telegram reçoit le messag
 
 Ajouter ces variables côté **serveur** dans Vercel, pour les environnements utilisés :
 
-| Variable                   | Requise    | Valeur                                                                                                      |
-| -------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`       | Oui        | Token fourni par BotFather. Ne pas utiliser le préfixe `bot` dans la valeur.                                |
-| `TELEGRAM_WEBHOOK_SECRET`  | Oui        | Chaîne aléatoire d’au moins 32 caractères, utilisée pour vérifier l’en-tête secret Telegram.                |
-| `TELEGRAM_ALLOWED_CHAT_ID` | Recommandé | Identifiant numérique de votre chat Telegram personnel. Si elle est définie, les autres chats sont ignorés. |
-| `OPENHANDS_CLOUD_API_KEY`  | Oui        | Clé API OpenHands Cloud créée dans Settings → API Keys. Elle doit rester côté serveur.                      |
-| `OPENHANDS_CLOUD_HOST`     | Non        | Hôte Cloud ; valeur par défaut : `https://app.all-hands.dev`.                                               |
-| `OPENHANDS_REPOSITORY`     | Non        | Dépôt transmis aux nouvelles conversations ; valeur par défaut : `Frankenstein-dev197/OpenHands`.           |
+| Variable                   | Requise | Valeur                                                                                            |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`       | Oui     | Token fourni par BotFather. Ne pas utiliser le préfixe `bot` dans la valeur.                      |
+| `TELEGRAM_WEBHOOK_SECRET`  | Oui     | Chaîne aléatoire d’au moins 32 caractères, utilisée pour vérifier l’en-tête secret Telegram.      |
+| `TELEGRAM_ALLOWED_CHAT_ID` | Oui     | Identifiant numérique de votre chat Telegram personnel. Les autres chats sont ignorés.            |
+| `OPENHANDS_CLOUD_API_KEY`  | Oui     | Clé API OpenHands Cloud créée dans Settings → API Keys. Elle doit rester côté serveur.            |
+| `OPENHANDS_CLOUD_HOST`     | Non     | Hôte Cloud ; valeur par défaut : `https://app.all-hands.dev`.                                     |
+| `OPENHANDS_REPOSITORY`     | Non     | Dépôt transmis aux nouvelles conversations ; valeur par défaut : `Frankenstein-dev197/OpenHands`. |
 
-`OPENHANDS_CLOUD_API_KEY` est nécessaire même si l’interface web est déjà connectée avec un cookie : une fonction Vercel ne peut pas réutiliser le cookie de votre navigateur lorsque l’ordinateur est éteint.
+`TELEGRAM_ALLOWED_CHAT_ID` est obligatoire pour empêcher tout autre chat Telegram de déclencher des tâches. `OPENHANDS_CLOUD_API_KEY` est nécessaire même si l’interface web est déjà connectée avec un cookie : une fonction Vercel ne peut pas réutiliser le cookie de votre navigateur lorsque l’ordinateur est éteint.
 
 ## Activer le webhook
 
