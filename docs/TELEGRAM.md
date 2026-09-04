@@ -31,7 +31,7 @@ TELEGRAM_WEBHOOK_URL='https://votre-projet.vercel.app/api/telegram' \
 npm run telegram:set-webhook
 ```
 
-Générer une valeur de secret conforme (48 caractères) :
+Générer une valeur de secret conforme : 24 octets aléatoires encodés en hexadécimal produisent exactement 48 caractères, suivis d’un retour à la ligne :
 
 ```bash
 openssl rand -hex 24
