@@ -34,7 +34,7 @@ npm run telegram:set-webhook
 Générer une valeur de secret conforme (48 caractères) :
 
 ```bash
-openssl rand -base64 48 | tr -dc 'A-Za-z0-9_-' | head -c 48; echo
+openssl rand -hex 24
 ```
 
 La commande appelle l’API officielle Telegram `setWebhook` et limite les mises à jour aux messages. Vérifier ensuite l’état avec `getWebhookInfo` si nécessaire.
