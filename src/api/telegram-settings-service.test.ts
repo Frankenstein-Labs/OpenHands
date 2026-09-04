@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  setActiveSelection,
+  setRegisteredBackends,
+} from "#/api/backend-registry/active-store";
+import type { Backend } from "#/api/backend-registry/types";
 import {
   configureTelegramWebhook,
   generateWebhookSecret,
@@ -7,42 +12,60 @@ import {
   webhookSecretIsValid,
 } from "./telegram-settings-service";
 
-function telegramResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+const { callCloudProxy } = vi.hoisted(() => ({
+  callCloudProxy: vi.fn(),
+}));
+
+vi.mock("#/api/cloud/proxy", () => ({
+  callCloudProxy,
+}));
+
+const cloudBackend: Backend = {
+  id: "cloud-test",
+  name: "Cloud test backend",
+  host: "https://app.example.test",
+  apiKey: "cloud-api-key",
+  kind: "cloud",
+};
+
+beforeEach(() => {
+  callCloudProxy.mockReset();
+  setRegisteredBackends([cloudBackend]);
+  setActiveSelection({ backendId: cloudBackend.id });
+});
 
 afterEach(() => {
+  setActiveSelection(null);
+  setRegisteredBackends([]);
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 
 describe("validateBotToken", () => {
   it("resolves a valid token to the bot username", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        telegramResponse({ ok: true, result: { username: "openhands_bot" } }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    callCloudProxy.mockResolvedValue({
+      ok: true,
+      result: { username: "openhands_bot" },
+    });
 
     const status = await validateBotToken("123:abc");
 
     expect(status).toEqual({ ok: true, username: "openhands_bot" });
-    expect(String(fetchMock.mock.calls[0][0])).toBe(
-      "https://api.telegram.org/bot123:abc/getMe",
-    );
+    expect(callCloudProxy).toHaveBeenCalledWith({
+      backend: cloudBackend,
+      method: "POST",
+      hostOverride: "https://api.telegram.org",
+      path: "/bot123:abc/getMe",
+      body: {},
+      authMode: "none",
+    });
   });
 
   it("returns an error for a rejected token", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        telegramResponse({ ok: false, description: "Unauthorized" }, 401),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    callCloudProxy.mockResolvedValue({
+      ok: false,
+      description: "Unauthorized",
+    });
 
     const status = await validateBotToken("bad");
 
@@ -53,17 +76,14 @@ describe("validateBotToken", () => {
 
 describe("getTelegramWebhookInfo", () => {
   it("reports the configured webhook URL and pending updates", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      telegramResponse({
-        ok: true,
-        result: {
-          url: "https://example.vercel.app/api/telegram",
-          pending_update_count: 3,
-          last_error_message: "",
-        },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    callCloudProxy.mockResolvedValue({
+      ok: true,
+      result: {
+        url: "https://example.vercel.app/api/telegram",
+        pending_update_count: 3,
+        last_error_message: "",
+      },
+    });
 
     const info = await getTelegramWebhookInfo("123:abc");
 
@@ -78,13 +98,10 @@ describe("getTelegramWebhookInfo", () => {
 
 describe("configureTelegramWebhook", () => {
   it("sends setWebhook with the secret and message-only updates", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      telegramResponse({
-        ok: true,
-        result: { url: "https://example.vercel.app/api/telegram" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    callCloudProxy.mockResolvedValue({
+      ok: true,
+      result: { url: "https://example.vercel.app/api/telegram" },
+    });
 
     const result = await configureTelegramWebhook({
       token: "123:abc",
@@ -93,18 +110,21 @@ describe("configureTelegramWebhook", () => {
     });
 
     expect(result.ok).toBe(true);
-    const [input, init] = fetchMock.mock.calls[0];
-    expect(String(input)).toContain("/setWebhook");
-    const body = JSON.parse(String(init?.body));
-    expect(body.url).toBe("https://example.vercel.app/api/telegram");
-    expect(body.secret_token).toBe("a".repeat(48));
-    expect(body.allowed_updates).toEqual(["message"]);
+    expect(callCloudProxy).toHaveBeenCalledWith({
+      backend: cloudBackend,
+      method: "POST",
+      hostOverride: "https://api.telegram.org",
+      path: "/bot123:abc/setWebhook",
+      body: {
+        url: "https://example.vercel.app/api/telegram",
+        secret_token: "a".repeat(48),
+        allowed_updates: ["message"],
+      },
+      authMode: "none",
+    });
   });
 
   it("rejects a secret shorter than 32 characters", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
     const result = await configureTelegramWebhook({
       token: "123:abc",
       secret: "short",
@@ -112,7 +132,34 @@ describe("configureTelegramWebhook", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(callCloudProxy).not.toHaveBeenCalled();
+  });
+  it("maps upstream HTTP errors to the Telegram description", async () => {
+    const { HttpError } = await import("@openhands/typescript-client");
+    callCloudProxy.mockRejectedValue(
+      new HttpError(401, "Unauthorized", { description: "Unauthorized" }),
+    );
+
+    const status = await validateBotToken("bad");
+
+    expect(status).toEqual({
+      ok: false,
+      error: "Unauthorized",
+    });
+  });
+
+  it("surfaces an error when no cloud backend is active", async () => {
+    setActiveSelection(null);
+    setRegisteredBackends([]);
+
+    const status = await validateBotToken("123:abc");
+
+    expect(status).toEqual({
+      ok: false,
+      error:
+        "Telegram settings require a cloud backend to proxy Bot API requests.",
+    });
+    expect(callCloudProxy).not.toHaveBeenCalled();
   });
 });
 

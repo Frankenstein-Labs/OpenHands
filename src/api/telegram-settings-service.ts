@@ -1,4 +1,7 @@
+import { HttpError } from "@openhands/typescript-client";
 import { SecretsService } from "#/api/secrets-service";
+import { getActiveBackend } from "#/api/backend-registry/active-store";
+import { callCloudProxy } from "#/api/cloud/proxy";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 
@@ -42,28 +45,54 @@ async function telegramApi<T>(
   method: string,
   body: Record<string, unknown> = {},
 ): Promise<{ ok: boolean; result?: T; description?: string }> {
-  const response = await fetch(`${TELEGRAM_API_BASE}/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  let payload: { ok?: boolean; result?: T; description?: string } | null = null;
+  const active = getActiveBackend().backend;
+
+  // api.telegram.org does not allow browser CORS, so the request must be
+  // forwarded server-side by the local agent-server's `/api/cloud-proxy`.
+  if (active.kind !== "cloud") {
+    return {
+      ok: false,
+      description:
+        "Telegram settings require a cloud backend to proxy Bot API requests.",
+    };
+  }
+
   try {
-    payload = (await response.json()) as {
+    const payload = await callCloudProxy<{
       ok?: boolean;
       result?: T;
       description?: string;
-    };
-  } catch {
-    payload = null;
+    }>({
+      backend: active,
+      method: "POST",
+      hostOverride: TELEGRAM_API_BASE,
+      path: `/bot${token}/${method}`,
+      body,
+      authMode: "none",
+    });
+
+    if (!payload?.ok) {
+      return {
+        ok: false,
+        description: payload?.description ?? "Telegram API request failed.",
+      };
+    }
+    return { ok: true, result: payload.result };
+  } catch (error) {
+    // The proxy envelopes upstream HTTP errors into HttpError; the upstream
+    // JSON body (ok/description) rides in `error.response`.
+    const upstream = error instanceof HttpError ? error.response : undefined;
+    const description =
+      typeof upstream === "object" &&
+      upstream !== null &&
+      "description" in upstream &&
+      typeof (upstream as { description?: unknown }).description === "string"
+        ? String((upstream as { description: string }).description)
+        : error instanceof Error
+          ? error.message
+          : "Telegram API request failed.";
+    return { ok: false, description };
   }
-  if (!response.ok || !payload?.ok) {
-    return {
-      ok: false,
-      description: payload?.description ?? `HTTP ${response.status}`,
-    };
-  }
-  return { ok: true, result: payload.result };
 }
 
 export async function validateBotToken(token: string): Promise<BotTokenStatus> {
