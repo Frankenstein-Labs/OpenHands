@@ -6,14 +6,14 @@ Cette intégration ajoute un webhook Vercel minimal : Telegram reçoit le messag
 
 Ajouter ces variables côté **serveur** dans Vercel, pour les environnements utilisés :
 
-| Variable                   | Requise | Valeur                                                                                            |
-| -------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`       | Oui     | Token fourni par BotFather. Ne pas utiliser le préfixe `bot` dans la valeur.                      |
-| `TELEGRAM_WEBHOOK_SECRET`  | Oui     | Chaîne aléatoire d’au moins 32 caractères, utilisée pour vérifier l’en-tête secret Telegram.      |
-| `TELEGRAM_ALLOWED_CHAT_ID` | Oui     | Identifiant numérique de votre chat Telegram personnel. Les autres chats sont ignorés.            |
-| `OPENHANDS_CLOUD_API_KEY`  | Oui     | Clé API OpenHands Cloud créée dans Settings → API Keys. Elle doit rester côté serveur.            |
-| `OPENHANDS_CLOUD_HOST`     | Non     | Hôte Cloud ; valeur par défaut : `https://app.all-hands.dev`.                                     |
-| `OPENHANDS_REPOSITORY`     | Non     | Dépôt transmis aux nouvelles conversations ; valeur par défaut : `Frankenstein-dev197/OpenHands`. |
+| Variable                   | Requise | Valeur                                                                                                                 |
+| -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`       | Oui     | Token fourni par BotFather. Ne pas utiliser le préfixe `bot` dans la valeur.                                           |
+| `TELEGRAM_WEBHOOK_SECRET`  | Oui     | Chaîne aléatoire de 32 à 256 caractères alphanumériques, `_` ou `-`, utilisée pour vérifier l’en-tête secret Telegram. |
+| `TELEGRAM_ALLOWED_CHAT_ID` | Oui     | Identifiant numérique de votre chat Telegram personnel. Les autres chats sont ignorés.                                 |
+| `OPENHANDS_CLOUD_API_KEY`  | Oui     | Clé API OpenHands Cloud créée dans Settings → API Keys. Elle doit rester côté serveur.                                 |
+| `OPENHANDS_CLOUD_HOST`     | Non     | Hôte Cloud ; valeur par défaut : `https://app.all-hands.dev`.                                                          |
+| `OPENHANDS_REPOSITORY`     | Non     | Dépôt transmis aux nouvelles conversations ; valeur par défaut : `Frankenstein-dev197/OpenHands`.                      |
 
 `TELEGRAM_ALLOWED_CHAT_ID` est obligatoire pour empêcher tout autre chat Telegram de déclencher des tâches. `OPENHANDS_CLOUD_API_KEY` est nécessaire même si l’interface web est déjà connectée avec un cookie : une fonction Vercel ne peut pas réutiliser le cookie de votre navigateur lorsque l’ordinateur est éteint.
 
@@ -22,10 +22,19 @@ Ajouter ces variables côté **serveur** dans Vercel, pour les environnements ut
 Après le déploiement Vercel, lancer une fois la commande suivante depuis le dépôt, avec le token et le secret disponibles dans l’environnement local :
 
 ```bash
-TELEGRAM_BOT_TOKEN='…' \
-TELEGRAM_WEBHOOK_SECRET='…' \
+# 1. Définissez TELEGRAM_BOT_TOKEN et TELEGRAM_WEBHOOK_SECRET dans votre
+#    environnement (ex.: fichier .env protégé ou gestionnaire de secrets),
+#    sans les saisir dans la commande ci-dessous. Ils n’apparaîtront pas
+#    dans l’historique du shell.
+# 2. Configurez le webhook (seul l’URL figure dans la commande) :
 TELEGRAM_WEBHOOK_URL='https://votre-projet.vercel.app/api/telegram' \
 npm run telegram:set-webhook
+```
+
+Générer une valeur de secret conforme (48 caractères) :
+
+```bash
+openssl rand -base64 48 | tr -dc 'A-Za-z0-9_-' | head -c 48; echo
 ```
 
 La commande appelle l’API officielle Telegram `setWebhook` et limite les mises à jour aux messages. Vérifier ensuite l’état avec `getWebhookInfo` si nécessaire.

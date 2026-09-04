@@ -5,7 +5,8 @@ const DEFAULT_REPOSITORY = "Frankenstein-dev197/OpenHands";
 const TELEGRAM_MESSAGE_LIMIT = 4096;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
 const DEFAULT_START_TIMEOUT_MS = 120_000;
-const DEFAULT_TASK_TIMEOUT_MS = 15 * 60_000;
+// Below Vercel's 300s maxDuration so the task timeout error can reach Telegram.
+const DEFAULT_TASK_TIMEOUT_MS = 240_000;
 
 type HeaderValue = string | string[] | undefined;
 
@@ -152,6 +153,32 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+// Serialize per-chat processing so concurrent webhook invocations sharing this
+// instance cannot race to create duplicate Cloud conversations. Concurrent
+// requests routed to different Vercel isolates remain possible without a
+// durable store.
+const chatQueues = new Map<string, Promise<unknown>>();
+
+async function runExclusive<T>(
+  chatId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const previous = chatQueues.get(chatId) ?? Promise.resolve();
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const next = previous.catch(() => undefined).then(() => gate);
+  chatQueues.set(chatId, next);
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (chatQueues.get(chatId) === next) chatQueues.delete(chatId);
+  }
+}
+
 async function telegramApi<T>(
   method: string,
   body: Record<string, unknown>,
@@ -208,6 +235,16 @@ function openHandsHeaders(): Record<string, string> {
   };
 }
 
+class OpenHandsError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "OpenHandsError";
+    this.status = status;
+  }
+}
+
 async function openHandsRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -228,8 +265,9 @@ async function openHandsRequest<T>(
       typeof payload === "object" && payload !== null && "detail" in payload
         ? String((payload as { detail?: unknown }).detail)
         : `HTTP ${response.status}`;
-    throw new Error(
+    throw new OpenHandsError(
       `OpenHands Cloud request failed (${response.status}): ${detail.slice(0, 400)}`,
+      response.status,
     );
   }
   return payload as T;
@@ -243,7 +281,16 @@ async function searchTelegramConversation(
   chatId: string,
 ): Promise<CloudConversation | null> {
   let pageId: string | undefined;
+  const seenCursors = new Set<string>();
   do {
+    if (pageId) {
+      if (seenCursors.has(pageId)) {
+        throw new Error(
+          "OpenHands Cloud conversations search repeated a page cursor",
+        );
+      }
+      seenCursors.add(pageId);
+    }
     const query = new URLSearchParams({
       limit: "100",
       sort_order: "UPDATED_AT_DESC",
@@ -399,9 +446,10 @@ async function sendToConversation(
       throw new Error("OpenHands Cloud rejected the message");
   } catch (error) {
     // A paused Cloud sandbox is explicitly resumed before retrying, matching
-    // the documented send-message contract.
-    const messageText = errorMessage(error);
-    if (!messageText.includes("409")) throw error;
+    // the documented send-message contract (HTTP 409 only). Check the numeric
+    // status instead of the message text so a 5xx whose detail contains "409"
+    // does not trigger an unnecessary resume and retry.
+    if (!(error instanceof OpenHandsError) || error.status !== 409) throw error;
     const sandboxId = conversation?.sandbox_id;
     if (!sandboxId) throw error;
     await openHandsRequest(
@@ -480,6 +528,13 @@ async function stopConversation(chatId: string): Promise<string> {
 }
 
 async function processMessage(chatId: string, text: string): Promise<void> {
+  await runExclusive(chatId, () => processMessageSerial(chatId, text));
+}
+
+async function processMessageSerial(
+  chatId: string,
+  text: string,
+): Promise<void> {
   const command = commandName(text);
   if (command === "/start") {
     await sendTelegramMessage(

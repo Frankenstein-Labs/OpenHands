@@ -4,7 +4,11 @@ const explicitUrl = process.env.TELEGRAM_WEBHOOK_URL?.trim();
 const vercelUrl = process.env.VERCEL_URL?.trim();
 
 if (!token) throw new Error("TELEGRAM_BOT_TOKEN is required");
-if (!secret) throw new Error("TELEGRAM_WEBHOOK_SECRET is required");
+if (!secret || !/^[A-Za-z0-9_-]{32,256}$/.test(secret)) {
+  throw new Error(
+    "TELEGRAM_WEBHOOK_SECRET must contain 32-256 letters, digits, '_' or '-'",
+  );
+}
 
 const baseUrl = explicitUrl || (vercelUrl ? `https://${vercelUrl}` : null);
 if (!baseUrl) {

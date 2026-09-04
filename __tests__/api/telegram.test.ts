@@ -209,4 +209,111 @@ describe("Telegram webhook", () => {
       ),
     ).toBe(true);
   });
+
+  it("resumes a paused sandbox,and retries when send-message returns HTTP 409", async () => {
+    configureEnvironment();
+    const fetchMock: FetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("api.telegram.org"))
+        return response({ ok: true, result: {} });
+      if (url.includes("/api/v1/app-conversations/search")) {
+        return response({
+          items: [
+            {
+              id: "conversation-1",
+              title: "Telegram chat 12345",
+              sandbox_id: "sandbox-1",
+              execution_status: "idle",
+              sandbox_status: "RUNNING",
+            },
+          ],
+          next_page_id: null,
+        });
+      }
+      if (url.endsWith("/send-message")) {
+        const calls = fetchMock.mock.calls.filter(([item]) =>
+          String(item).includes("/send-message"),
+        );
+        if (calls.length === 1) {
+          return new Response(JSON.stringify({ detail: "Sandbox is paused" }), {
+            status: 409,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return response({ success: true, sandbox_status: "RUNNING" });
+      }
+      if (url.includes("/api/v1/sandboxes/sandbox-1/resume")) {
+        return response({});
+      }
+      if (url.includes("/api/v1/conversation/conversation-1/events/search")) {
+        const calls = fetchMock.mock.calls.filter(([item]) =>
+          String(item).includes(
+            "/api/v1/conversation/conversation-1/events/search",
+          ),
+        );
+        return response({
+          items:
+            calls.length === 1
+              ? [
+                  {
+                    id: "old-assistant",
+                    kind: "MessageEvent",
+                    llm_message: {
+                      role: "assistant",
+                      content: [{ type: "text", text: "Ancienne réponse." }],
+                    },
+                  },
+                ]
+              : [
+                  {
+                    id: "new-assistant",
+                    kind: "MessageEvent",
+                    llm_message: {
+                      role: "assistant",
+                      content: [{ type: "text", text: "Nouvelle réponse." }],
+                    },
+                  },
+                ],
+        });
+      }
+      if (url.includes("/api/v1/app-conversations?ids=conversation-1")) {
+        return response([
+          { id: "conversation-1", execution_status: "finished" },
+        ]);
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await processTelegramUpdate(update("Relance la tâche"));
+
+    const resumeCalls = fetchMock.mock.calls.filter(([input]) =>
+      String(input).includes("/api/v1/sandboxes/sandbox-1/resume"),
+    );
+    expect(resumeCalls).toHaveLength(1);
+    const telegramCalls = fetchMock.mock.calls.filter(([input]) =>
+      String(input).includes("api.telegram.org"),
+    );
+    expect(JSON.parse(String(telegramCalls[1][1]?.body))).toMatchObject({
+      text: "Nouvelle réponse.",
+    });
+  });
+
+  it("fails when the conversations search repeats a page cursor", async () => {
+    configureEnvironment();
+    const fetchMock: FetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("api.telegram.org"))
+        return response({ ok: true, result: {} });
+      if (url.includes("/api/v1/app-conversations/search")) {
+        return response({ items: [], next_page_id: "cursor-1" });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      processTelegramUpdate(update("Analyse le repository")),
+    ).rejects.toThrow(/repeated a page cursor/);
+  });
 });
