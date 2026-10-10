@@ -1,4 +1,5 @@
 import React from "react";
+import { docsUrl } from "#/constants/branding";
 import { useTranslation } from "react-i18next";
 import { ExternalLink } from "lucide-react";
 import { ExtensionsNavigation } from "#/components/features/skills/extensions-navigation";
@@ -32,8 +33,9 @@ type PendingAction =
   | { type: "enable"; extension: InstalledCanvasExtensionInfo }
   | { type: "uninstall"; extension: InstalledCanvasExtensionInfo };
 
-const CANVAS_EXTENSIONS_DOCS_URL =
-  "https://docs.openhands.dev/openhands/usage/agent-canvas/canvas-extensions";
+const CANVAS_EXTENSIONS_DOCS_URL = docsUrl(
+  "openhands/usage/agent-canvas/canvas-extensions",
+);
 
 export default function CanvasExtensionsScreen() {
   const { t } = useTranslation("openhands");

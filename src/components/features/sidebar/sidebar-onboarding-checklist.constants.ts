@@ -1,14 +1,16 @@
+import { EXTERNAL_ORIGINS, docsUrl } from "#/constants/branding";
 import { I18nKey } from "#/i18n/declaration";
 import type {
   OnboardingLinkDestinationType,
   OnboardingLinkId,
 } from "#/hooks/use-tracking";
 
-const SCHEDULED_TASKS_DOCS_URL =
-  "https://docs.openhands.dev/openhands/usage/agent-canvas/prebuilt-automations";
+const SCHEDULED_TASKS_DOCS_URL = docsUrl(
+  "openhands/usage/agent-canvas/prebuilt-automations",
+);
 
-/** Canonical Slack invite redirect from openhands.dev. */
-export const OPENHANDS_SLACK_COMMUNITY_URL = "https://openhands.dev/joinslack";
+/** Canonical Slack invite redirect (OpenHands community, upstream today). */
+export const OPENHANDS_SLACK_COMMUNITY_URL = EXTERNAL_ORIGINS.slackCommunity;
 
 export const SIDEBAR_ONBOARDING_CHECKLIST_DISMISSED_STORAGE_KEY =
   "openhands-sidebar-onboarding-checklist-dismissed";
@@ -134,15 +136,16 @@ export const SIDEBAR_ONBOARDING_CHECKLIST_DOCS_URLS: Record<
   SidebarOnboardingChecklistItemId,
   string
 > = {
-  "configure-llm":
-    "https://docs.openhands.dev/openhands/usage/settings/llm-settings#llm-profiles",
-  "start-conversation":
-    "https://docs.openhands.dev/openhands/usage/agent-canvas/backends",
+  "configure-llm": docsUrl(
+    "openhands/usage/settings/llm-settings#llm-profiles",
+  ),
+  "start-conversation": docsUrl("openhands/usage/agent-canvas/backends"),
   "schedule-task": SCHEDULED_TASKS_DOCS_URL,
-  "customize-agent":
-    "https://docs.openhands.dev/openhands/usage/agent-canvas/customize-and-settings",
-  "connect-mcp": "https://docs.openhands.dev/overview/model-context-protocol",
-  "join-slack": "https://docs.openhands.dev/overview/community",
+  "customize-agent": docsUrl(
+    "openhands/usage/agent-canvas/customize-and-settings",
+  ),
+  "connect-mcp": docsUrl("overview/model-context-protocol"),
+  "join-slack": docsUrl("overview/community"),
 };
 
 export function isCustomizeChecklistPath(path: string): boolean {

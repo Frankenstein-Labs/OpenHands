@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown, Globe, Info, Monitor } from "lucide-react";
 import { ServerClient } from "@openhands/typescript-client/clients";
 import OpenHandsLogoWhite from "#/assets/branding/openhands-logo-white.svg?react";
+import { EXTERNAL_ORIGINS, docsUrl } from "#/constants/branding";
 import { ModalBackdrop } from "#/components/shared/modals/modal-backdrop";
 import {
   MODAL_MAX_WIDTH_VIEWPORT,
@@ -144,14 +145,13 @@ function isValidHostUrl(host: string): boolean {
   }
 }
 
-const DEFAULT_OPENHANDS_CLOUD_HOST = "https://app.all-hands.dev";
+const DEFAULT_OPENHANDS_CLOUD_HOST = EXTERNAL_ORIGINS.cloudApp;
 const LOCAL_BACKEND_COMMAND = "agent-canvas --backend-only --port 8001";
 const LOCAL_AGENT_SERVER_DOCS_URL =
   "https://github.com/OpenHands/OpenHands/blob/main/docs/DEVELOPMENT.md#alternative-development-workflows";
 const REMOTE_AGENT_SERVER_DOCS_URL =
   "https://github.com/OpenHands/OpenHands/blob/main/docs/SELF_HOSTING.md";
-const DEPLOYMENT_OPTIONS_URL =
-  "https://docs.openhands.dev/overview/introduction";
+const DEPLOYMENT_OPTIONS_URL = docsUrl("overview/introduction");
 export type BackendConnectionMethod = "manual" | "cloud_login";
 
 export type BackendAddedSource = CloudConnectionSource;

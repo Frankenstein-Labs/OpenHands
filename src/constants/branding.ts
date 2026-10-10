@@ -20,3 +20,37 @@ export const BRANDING = {
 } as const;
 
 export type Branding = typeof BRANDING;
+
+/**
+ * External service origins the app dials or links to.
+ *
+ * These point at live OpenHands services today and are the single place to
+ * change once CORTEX AI has its own infrastructure. They are intentionally NOT
+ * replaced with invented CORTEX domains: doing so would silently break the
+ * working integration. See docs/CORTEX_ARCHITECTURE.md for the migration plan
+ * and docs/BRANDING.md for the per-dependency notes.
+ */
+export const EXTERNAL_ORIGINS = {
+  /**
+   * Hosted OpenHands Cloud app (default cloud backend + device-flow auth +
+   * a few settings deep-links). Overridable per deployment via
+   * `VITE_LOCK_TO_CLOUD` and the backend registry.
+   */
+  cloudApp: "https://app.all-hands.dev",
+  /** Product documentation site. */
+  docs: "https://docs.openhands.dev",
+  /** Community Slack invite. */
+  slackCommunity: "https://openhands.dev/joinslack",
+  /**
+   * Reverse proxy that fronts the PostHog telemetry endpoint (ad-blocker
+   * bypass). Overridable via `VITE_POSTHOG_HOST`.
+   */
+  telemetryProxy: "https://z.openhands.dev",
+} as const;
+
+/** Trailing-slash documentation origin prefix (for consumer-URL validation). */
+export const DOCS_URL_PREFIX = `${EXTERNAL_ORIGINS.docs}/`;
+
+/** Build an absolute documentation URL from a path such as `overview/introduction`. */
+export const docsUrl = (path: string): string =>
+  `${EXTERNAL_ORIGINS.docs}/${path.replace(/^\/+/, "")}`;
