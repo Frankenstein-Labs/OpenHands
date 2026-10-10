@@ -15,7 +15,7 @@ import config from "../../electron-builder.config.mjs";
 
 const afterPack = config.afterPack as (ctx: unknown) => Promise<void>;
 
-const PRODUCT_FILENAME = "OpenHands Agent Canvas";
+const PRODUCT_FILENAME = "CORTEX AI";
 
 function makeContext(platform: string, appOutDir: string) {
   return {
