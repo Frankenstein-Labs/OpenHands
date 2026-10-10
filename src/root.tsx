@@ -45,6 +45,7 @@ import { QUERY_KEYS } from "#/hooks/query/query-keys";
 import { AgentServerUIRoot } from "#/components/providers";
 import { TelemetryConsentBanner } from "#/components/features/analytics/telemetry-consent-banner";
 import { buildAgentCanvasPath } from "#/utils/base-path";
+import { BRANDING } from "#/constants/branding";
 import { useOnboardingCompletion } from "#/components/features/onboarding/use-onboarding-completion";
 import { NavigationProvider } from "#/context/navigation-context";
 import {
@@ -226,8 +227,8 @@ export const links: LinksFunction = () => [
 ];
 
 export const meta: MetaFunction = () => [
-  { title: "OpenHands" },
-  { name: "description", content: "Let's Start Building!" },
+  { title: BRANDING.productName },
+  { name: "description", content: BRANDING.metaDescription },
 ];
 
 export default function App() {

@@ -21,7 +21,7 @@ name: Desktop (macOS)
 # The app is only ad-hoc signed (no signing certs exist for any platform);
 # a downloaded DMG is quarantined by Gatekeeper, which reports the app as
 # "damaged" until the attribute is cleared:
-#   xattr -d com.apple.quarantine "/Applications/OpenHands Agent Canvas.app"
+#   xattr -d com.apple.quarantine "/Applications/CORTEX AI.app"
 #
 # Intel-leg removal date: macos-15-intel is available until August 2027, after
 # which GitHub drops x86_64 macOS support entirely and this leg must go.
@@ -105,7 +105,7 @@ jobs:
             exit 1
           fi
           dmg_path=$(find dist-electron -maxdepth 1 -name '*.dmg' | head -n 1)
-          # electron-builder names the DMG OpenHands-Agent-Canvas-<ver>-<arch>.dmg.
+          # electron-builder names the DMG CORTEX-AI-<ver>-<arch>.dmg.
           if ! echo "$dmg_path" | grep -q -- "-${{ matrix.arch }}.dmg$"; then
             echo "::error::Expected ${{ matrix.arch }} DMG, got: $dmg_path"
             exit 1

@@ -2006,7 +2006,7 @@
     "ca": "Quina feina vols automatitzar?"
   },
   "HOME$OPENHANDS_DESCRIPTION": {
-    "en": "OpenHands makes it easy to build and maintain software using AI-driven development.",
+    "en": "CORTEX AI makes it easy to build and maintain software using AI-driven development.",
     "ja": "OpenHandsはAI駆動の開発を使用してソフトウェアの開発と維持を容易にします。",
     "zh-CN": "OpenHands使用AI驱动的开发方式，轻松构建和维护软件。",
     "zh-TW": "OpenHands使用AI驅動的開發方式，輕鬆構建和維護軟件。",
@@ -8568,7 +8568,7 @@
     "ca": "avatar d'usuari"
   },
   "BRANDING$OPENHANDS": {
-    "en": "OpenHands",
+    "en": "CORTEX AI",
     "ja": "OpenHands",
     "zh-CN": "OpenHands",
     "zh-TW": "OpenHands",
@@ -8585,7 +8585,7 @@
     "ca": "OpenHands"
   },
   "BRANDING$OPENHANDS_LOGO": {
-    "en": "OpenHands Logo",
+    "en": "CORTEX AI Logo",
     "ja": "OpenHandsロゴ",
     "zh-CN": "OpenHands标志",
     "zh-TW": "OpenHands標誌",
@@ -11475,7 +11475,7 @@
     "ca": "Comencem a construir!"
   },
   "LANDING$SUBTITLE": {
-    "en": "OpenHands makes it easy to build and maintain software using a simple prompt.",
+    "en": "CORTEX AI makes it easy to build and maintain software using a simple prompt.",
     "ja": "OpenHandsは、シンプルなプロンプトを使用してソフトウェアの開発と保守を簡単にします。",
     "zh-CN": "OpenHands 使用简单的提示来轻松构建和维护软件。",
     "zh-TW": "OpenHands 使用簡單的提示來輕鬆建構和維護軟體。",
@@ -12852,7 +12852,7 @@
     "ca": "Més accions"
   },
   "CHAT_INTERFACE$INITIAL_MESSAGE": {
-    "en": "Hi! I'm OpenHands, an AI Software Engineer. What would you like to build with me today?",
+    "en": "Hi! I'm CORTEX AI, an AI Software Engineer. What would you like to build with me today?",
     "zh-CN": "你好！我是 OpenHands，一名 AI 软件工程师。今天想和我一起编写什么程序呢?",
     "de": "Hi! Ich bin OpenHands, ein KI-Softwareingenieur. Was möchten Sie heute mit mir erstellen?",
     "ko-KR": "안녕하세요! 저는 오픈데빈(OpenHands), AI 소프트웨어 엔지니어입니다. 오늘은 저와 함께 무엇을 만들어 볼까요?",
@@ -32776,7 +32776,7 @@
     "ca": "Replega les accions"
   },
   "ONBOARDING$TITLE": {
-    "en": "Welcome to OpenHands",
+    "en": "Welcome to CORTEX AI",
     "ja": "OpenHands へようこそ",
     "zh-CN": "欢迎使用 OpenHands",
     "zh-TW": "歡迎使用 OpenHands",

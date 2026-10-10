@@ -3,6 +3,15 @@
 ## General
 
 - This repository is the OpenHands Agent Canvas React/TypeScript frontend.
+- It is branded for end users as **CORTEX AI** (Frankenstein Labs) while running
+  on the open-source OpenHands agent engine. See `docs/BRANDING.md` for what is
+  branded, what must keep the OpenHands name (engine identity, provider IDs,
+  package/image/env names, license attribution), and where the remaining
+  external service dependencies are configured.
+- The user-facing product name lives in `src/constants/branding.ts`; the
+  document title is derived from it. Do not rename OpenHands engine identifiers,
+  `@openhands/*` packages, `OH_*` env vars, or `ghcr.io/openhands/*` images to
+  rebrand — that breaks integrations.
 
 ## i18n workflow
 - After editing `src/i18n/translation.json`, run `npm run make-i18n` to

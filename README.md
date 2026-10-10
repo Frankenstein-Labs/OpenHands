@@ -1,10 +1,12 @@
 <a name="readme-top"></a>
 
 <div align="center">
-  <img src="https://assets.openhands.dev/logo-whitebackground.png" alt="OpenHands logo" width="340">
-  <h1 align="center" style="border-bottom: none">Agent Canvas</h1>
+  <h1 align="center" style="border-bottom: none">CORTEX AI</h1>
   <p align="center">
-    <strong>The self-hosted developer control center for coding agents and automations.</strong>
+    <strong>The AI platform for working with agents, building software, managing projects, and automating tasks.</strong>
+  </p>
+  <p align="center">
+    A <strong>Frankenstein Labs</strong> platform, built on the open-source OpenHands agent engine.
   </p>
   <p align="center">
     Run OpenHands, Claude Code, Codex, Gemini, Pi, OpenCode, or any ACP-compatible agent across local, remote, and cloud backends.
