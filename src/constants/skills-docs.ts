@@ -1,5 +1,8 @@
-export const ADD_SKILL_DOCS_URL =
-  "https://docs.openhands.dev/overview/skills/adding#adding-new-skills";
+import { docsUrl } from "#/constants/branding";
+
+export const ADD_SKILL_DOCS_URL = docsUrl(
+  "overview/skills/adding#adding-new-skills",
+);
 
 export const ADD_SKILL_SKILL_NAME = "add-skill";
 

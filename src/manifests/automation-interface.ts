@@ -19,6 +19,7 @@
 import { AUTOMATION_CATALOG } from "@openhands/extensions/automations";
 import { validateInterfaceManifest } from "./interface-validation";
 import { AUTOMATION_INTERFACE_CANDIDATE } from "./manifest-sources";
+import { docsUrl } from "#/constants/branding";
 import type {
   AutomationAttributeName,
   InterfaceDashboardFilter,
@@ -47,8 +48,9 @@ const MOUNTED_ROUTES = {
  * pointer for the host's import picker, not interface data — the manifest's
  * `importExport` block has no docs field.
  */
-export const AUTOMATION_FILE_FORMAT_DOCS_URL =
-  "https://docs.openhands.dev/openhands/usage/agent-canvas/managing-automations#exported-file-format";
+export const AUTOMATION_FILE_FORMAT_DOCS_URL = docsUrl(
+  "openhands/usage/agent-canvas/managing-automations#exported-file-format",
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

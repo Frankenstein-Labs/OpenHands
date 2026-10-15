@@ -8,6 +8,7 @@
  * back to its own defaults rather than rendering a partially-trusted mix.
  */
 
+import { DOCS_URL_PREFIX as BRANDING_DOCS_URL_PREFIX } from "#/constants/branding";
 import type {
   AutomationAttributeName,
   InterfaceAttributeType,
@@ -29,7 +30,7 @@ import {
 const MARKUP_PATTERN = /<[A-Za-z/!]/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** The one URL the manifest may state, pinned to the product documentation. */
-const DOCS_URL_PREFIX = "https://docs.openhands.dev/";
+const DOCS_URL_PREFIX = BRANDING_DOCS_URL_PREFIX;
 const FILE_KIND_PATTERN = /^[a-z][a-z-]*$/;
 const FILENAME_SUFFIX_PATTERN = /^\.[a-z][a-z.]*json$/;
 const EVENT_SOURCE_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;

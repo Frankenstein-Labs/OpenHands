@@ -1,4 +1,5 @@
 import React from "react";
+import { EXTERNAL_ORIGINS, docsUrl } from "#/constants/branding";
 import { useTranslation } from "react-i18next";
 import { ModelSelector } from "#/components/shared/modals/settings/model-selector";
 import { useAgentSettingsSchema } from "#/hooks/query/use-agent-settings-schema";
@@ -112,10 +113,10 @@ function OpenHandsApiKeyHelp({ testId }: OpenHandsApiKeyHelpProps) {
       testId={testId}
       text={t(I18nKey.SETTINGS$OPENHANDS_API_KEY_HELP_TEXT)}
       linkText={t(I18nKey.SETTINGS$OPENHANDS_API_KEY_HELP_LINK)}
-      href="https://app.all-hands.dev/settings/api-keys"
+      href={`${EXTERNAL_ORIGINS.cloudApp}/settings/api-keys`}
       suffix={` ${t(I18nKey.SETTINGS$OPENHANDS_API_KEY_HELP_SUFFIX)}`}
       suffixLinkText={t(I18nKey.SETTINGS$SEE_HERE_FOR_MORE_DETAILS)}
-      suffixLinkHref="https://docs.openhands.dev/usage/local-setup#getting-an-api-key"
+      suffixLinkHref={docsUrl("usage/local-setup#getting-an-api-key")}
       trailing="."
     />
   );
@@ -347,7 +348,7 @@ export function LlmSettingsScreen({
               testId={helpTestId}
               text={t(I18nKey.SETTINGS$DONT_KNOW_API_KEY)}
               linkText={t(I18nKey.SETTINGS$CLICK_FOR_INSTRUCTIONS)}
-              href="https://docs.openhands.dev/usage/local-setup#getting-an-api-key"
+              href={docsUrl("usage/local-setup#getting-an-api-key")}
             />
           )}
         </>

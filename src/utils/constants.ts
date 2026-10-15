@@ -1,3 +1,4 @@
+import { EXTERNAL_ORIGINS } from "#/constants/branding";
 import { SlashCommandItem } from "#/hooks/chat/use-slash-command";
 
 export const JSON_VIEW_THEME = {
@@ -20,7 +21,7 @@ export const JSON_VIEW_THEME = {
 };
 
 export const PRODUCT_URL = {
-  PRODUCTION: "https://app.all-hands.dev",
+  PRODUCTION: EXTERNAL_ORIGINS.cloudApp,
 };
 
 export const SETTINGS_FORM = {

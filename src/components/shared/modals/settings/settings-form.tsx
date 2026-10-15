@@ -13,6 +13,7 @@ import { SettingsInput } from "#/components/features/settings/settings-input";
 import { HelpLink } from "#/ui/help-link";
 import { useSaveSettings } from "#/hooks/mutation/use-save-settings";
 import { getAgentSettingValue } from "#/utils/sdk-settings-schema";
+import { docsUrl } from "#/constants/branding";
 import { SETTINGS_FORM } from "#/utils/constants";
 
 interface SettingsFormProps {
@@ -103,7 +104,7 @@ export function SettingsForm({ settings, onClose }: SettingsFormProps) {
             testId="llm-api-key-help-anchor"
             text={t(I18nKey.SETTINGS$DONT_KNOW_API_KEY)}
             linkText={t(I18nKey.SETTINGS$CLICK_FOR_INSTRUCTIONS)}
-            href="https://docs.openhands.dev/usage/local-setup#getting-an-api-key"
+            href={docsUrl("usage/local-setup#getting-an-api-key")}
             size="settings"
             linkColor="white"
           />
