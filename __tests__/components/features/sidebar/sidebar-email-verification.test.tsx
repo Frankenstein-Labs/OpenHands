@@ -147,12 +147,12 @@ describe("Sidebar email verification", () => {
     renderSidebar();
     await screen.findByTestId("settings-loaded");
 
-    // Assert: New Chat, Customize/Extensions, and Automations stay actionable
-    // (a disabled link would carry aria-disabled="true").
+    // Assert: the bottom-level task, library, and settings links remain
+    // actionable even when the account email is unverified.
     for (const testId of [
-      "sidebar-conversations-link",
-      "sidebar-skills-link",
-      "sidebar-automations-link",
+      "sidebar-new-task-link",
+      "sidebar-library-link",
+      "sidebar-settings-link",
     ]) {
       expect(screen.getByTestId(testId)).not.toHaveAttribute("aria-disabled");
     }

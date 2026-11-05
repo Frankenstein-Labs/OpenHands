@@ -11,6 +11,10 @@ import { OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import { SettingsNavRenderedItem } from "#/hooks/use-settings-nav-items";
 import { ActiveBackendProvider } from "#/contexts/active-backend-context";
 
+vi.mock("#/components/features/backends/backend-selector", () => ({
+  BackendSelector: () => <div data-testid="backend-selector" />,
+}));
+
 const llmItem = OSS_NAV_ITEMS.find((item) => item.to === "/settings/llm")!;
 const condenserItem = OSS_NAV_ITEMS.find(
   (item) => item.to === "/settings/condenser",
@@ -61,6 +65,11 @@ describe("SettingsNavigation", () => {
     expect(
       screen.getAllByText("SETTINGS$NAV_CONDENSER").length,
     ).toBeGreaterThan(0);
+    expect(
+      within(screen.getByTestId("settings-navbar")).getByTestId(
+        "settings-workspace-tools",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("closes the mobile drawer when the close button is clicked", async () => {
@@ -139,6 +148,12 @@ describe("SettingsDesktopSidebar", () => {
     expect(
       within(desktopNav).getByTestId("sidebar-settings-/settings/condenser"),
     ).toBeInTheDocument();
+    expect(
+      within(desktopNav).getByTestId("settings-tools-customize-link"),
+    ).toHaveAttribute("href", "/customize");
+    expect(
+      within(desktopNav).getByTestId("backend-selector"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -149,6 +164,12 @@ describe("SettingsMobileHub", () => {
     );
 
     const mobileNav = screen.getByTestId("settings-mobile-hub");
+    expect(
+      within(mobileNav).getByTestId("settings-tools-customize-link"),
+    ).toHaveAttribute("href", "/customize");
+    expect(
+      within(mobileNav).getByTestId("backend-selector"),
+    ).toBeInTheDocument();
     for (const item of [llmItem, condenserItem, verificationItem]) {
       const link = within(mobileNav).getByRole("link", {
         name: item.text,

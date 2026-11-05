@@ -42,6 +42,7 @@ interface SidebarNavLinkProps {
   disabled?: boolean;
   icon?: React.ReactElement;
   collapsed?: boolean;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
   hoverContent?: React.ReactNode;
   /**
    * When true, forces the active style (and `aria-current`) regardless of the
@@ -63,6 +64,7 @@ export function SidebarNavLink({
   disabled = false,
   icon,
   collapsed = false,
+  onClick,
   hoverContent,
   forceActive = false,
   pinAction,
@@ -87,7 +89,9 @@ export function SidebarNavLink({
       onClick={(e) => {
         if (disabled) {
           e.preventDefault();
+          return;
         }
+        onClick?.(e);
       }}
       className={cn(
         sidebarNavRowClassName({ indent, collapsed }),
