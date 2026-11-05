@@ -3,6 +3,9 @@ import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   ChevronRight,
+  BookOpen,
+  Filter,
+  FolderPlus,
   Plus,
   Server,
   Settings,
@@ -29,6 +32,7 @@ import { BackendStatusDot } from "#/components/features/backends/backend-status-
 import { CommandMenuTrigger } from "#/components/features/command-menu/command-menu-trigger";
 import { AgentCanvasVersionTile } from "#/components/features/settings/agent-canvas-version-tile";
 import { SidebarConversationList } from "./sidebar-conversation-list";
+import { SidebarUserProfile } from "./sidebar-user-profile";
 import { SidebarOnboardingChecklist } from "./sidebar-onboarding-checklist";
 import AutomationsIcon from "#/icons/automations.svg?react";
 import {
@@ -206,11 +210,56 @@ export function SidebarRailBody({
         <SidebarNavLink
           to="/conversations"
           end
-          label={t(I18nKey.SIDEBAR$NEW_CHAT)}
-          testId="sidebar-conversations-link"
+          label={t(I18nKey.SIDEBAR$NEW_TASK)}
+          testId="sidebar-new-task-link"
           collapsed={collapsed}
           icon={<Plus width={ICON_SIZE} height={ICON_SIZE} />}
         />
+        <SidebarNavLink
+          to="/settings/agents"
+          label={t(I18nKey.SIDEBAR$LIBRARY)}
+          testId="sidebar-library-link"
+          collapsed={collapsed}
+          icon={<BookOpen width={ICON_SIZE} height={ICON_SIZE} />}
+        />
+        {!collapsed ? (
+          <div className="mt-5 flex h-9 items-center justify-between px-2.5 text-sm font-medium text-muted">
+            <span>{t(I18nKey.SIDEBAR$PROJECTS)}</span>
+            <button
+              type="button"
+              aria-label={t(I18nKey.SIDEBAR$NEW_PROJECT)}
+              data-testid="sidebar-new-project-button"
+              disabled
+              className="rounded-md p-1 text-muted opacity-60"
+              title={t(I18nKey.SIDEBAR$PROJECTS_UNAVAILABLE)}
+            >
+              <Plus className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          data-testid="sidebar-new-project-link"
+          disabled
+          className={cn(
+            sidebarNavRowClassName({ collapsed }),
+            "text-muted opacity-60",
+          )}
+          title={t(I18nKey.SIDEBAR$PROJECTS_UNAVAILABLE)}
+        >
+          <span className={SIDEBAR_ICON_SLOT_CLASS}>
+            <FolderPlus width={ICON_SIZE} height={ICON_SIZE} />
+          </span>
+          <span className={sidebarNavLabelClassName(collapsed)}>
+            {t(I18nKey.SIDEBAR$NEW_PROJECT)}
+          </span>
+        </button>
+        {!collapsed ? (
+          <div className="mt-5 flex h-9 items-center justify-between px-2.5 text-sm font-medium text-muted">
+            <span>{t(I18nKey.COMMON$TASKS)}</span>
+            <Filter className="size-5" aria-hidden="true" />
+          </div>
+        ) : null}
         <SidebarNavLink
           to={CUSTOMIZE_PATH}
           label={t(I18nKey.NAV$CUSTOMIZE)}
@@ -221,33 +270,7 @@ export function SidebarRailBody({
             CUSTOMIZE_PATH,
             "sidebar-pin-home-toggle-customize",
           )}
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width={ICON_SIZE}
-              height={ICON_SIZE}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z" />
-              <path d="m7 16.5-4.74-2.85" />
-              <path d="m7 16.5 5-3" />
-              <path d="M7 16.5v5.17" />
-              <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z" />
-              <path d="m17 16.5-5-3" />
-              <path d="m17 16.5 4.74-2.85" />
-              <path d="m17 16.5v5.17" />
-              <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z" />
-              <path d="M12 8 7.26 5.15" />
-              <path d="m12 8 4.74-2.85" />
-              <path d="M12 13.5V8" />
-            </svg>
-          }
+          icon={<Settings width={ICON_SIZE} height={ICON_SIZE} />}
         />
         {/* The interface manifest owns this entry's label, so an absent
             manifest leaves the rail without it rather than with host copy. */}
@@ -407,6 +430,7 @@ export function SidebarRailBody({
             <AgentCanvasVersionTile hideWhenUpToDate />
             <BackendSelector sidebarCollapsed={collapsed} openUpward />
           </div>
+          <SidebarUserProfile collapsed={collapsed} />
         </>
       ) : null}
     </div>
