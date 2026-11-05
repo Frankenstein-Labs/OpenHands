@@ -153,11 +153,12 @@ function MainAppContent() {
     );
   }
 
-  // Conversation + full-screen panel routes put the mobile menu control in the
-  // chat / panel header; omit the extra top row so we don't duplicate chrome.
-  const hideMobileSidebarMenuBar = /^\/conversations\/[^/]+/.test(
-    location.pathname,
-  );
+  // Home uses its custom welcome header; conversation routes render menu
+  // controls in their own chat / panel headers.
+  const isHomeRoute =
+    location.pathname === "/" || location.pathname === "/conversations";
+  const hideMobileSidebarMenuBar =
+    isHomeRoute || /^\/conversations\/[^/]+/.test(location.pathname);
   const showOnboardingPreview = isOnboardingPreviewActive(location.search);
 
   return (

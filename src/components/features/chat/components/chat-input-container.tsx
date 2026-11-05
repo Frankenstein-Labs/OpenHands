@@ -17,6 +17,7 @@ interface ChatInputContainerProps {
   hasStartedConversation?: boolean;
   isNewConversationPending?: boolean;
   showButton: boolean;
+  containerClassName?: string;
   buttonClassName: string;
   chatInputRef: React.RefObject<HTMLDivElement | null>;
   placeholder?: string;
@@ -44,6 +45,7 @@ export function ChatInputContainer({
   hasStartedConversation,
   isNewConversationPending = false,
   showButton,
+  containerClassName = "",
   buttonClassName,
   chatInputRef,
   placeholder,
@@ -71,6 +73,7 @@ export function ChatInputContainer({
       ref={chatContainerRef}
       className={cn(
         "bg-surface box-border content-stretch flex flex-col items-start justify-center p-4 relative rounded-[15px] w-full",
+        containerClassName,
         conversationMode === "plan" && "border border-[#597FF4]",
       )}
       onDragOver={(e) => onDragOver(e, disabled)}

@@ -144,6 +144,7 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByTestId("sidebar-mobile-menu-toggle"));
     const drawer = screen.getByTestId("sidebar-mobile-drawer");
     expect(drawer).toBeInTheDocument();
+    expect(within(drawer).queryByTestId("logo-button")).not.toBeInTheDocument();
     expect(
       within(drawer).getByTestId("sidebar-conversation-list"),
     ).toBeInTheDocument();
