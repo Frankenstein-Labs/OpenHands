@@ -286,7 +286,7 @@ export function HomeChatLauncher() {
   return (
     <div
       data-testid="home-chat-launcher"
-      className="flex w-full flex-col items-center pt-[max(4rem,28vh)] pb-10"
+      className="flex w-full flex-col items-center pt-[max(4rem,27vh)] pb-28 md:pt-[max(4rem,28vh)] md:pb-10"
     >
       <div className="flex w-full max-w-200 flex-col gap-4 md:px-4">
         <div className="flex w-full justify-center">
@@ -305,6 +305,7 @@ export function HomeChatLauncher() {
             onSubmit={handleSubmitWithModelGuard}
             onFilesPaste={handleUpload}
             disabled={isCreating || llmBlocked}
+            containerClassName="min-h-48 rounded-3xl border border-white/10 bg-surface/90 p-5 shadow-2xl backdrop-blur-xl md:min-h-0 md:rounded-[15px] md:border-0 md:bg-surface md:p-4 md:shadow-none md:backdrop-blur-none"
             placeholder={
               isAutomateMode
                 ? t(I18nKey.HOME$AUTOMATE_PROMPT_PLACEHOLDER)

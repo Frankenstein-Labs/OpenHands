@@ -26,6 +26,7 @@ export interface CustomChatInputProps {
     options?: import("#/hooks/chat/use-chat-attachment-upload").ChatAttachmentUploadOptions,
   ) => void;
   className?: React.HTMLAttributes<HTMLDivElement>["className"];
+  containerClassName?: React.HTMLAttributes<HTMLDivElement>["className"];
   buttonClassName?: React.HTMLAttributes<HTMLButtonElement>["className"];
 }
 
@@ -40,6 +41,7 @@ export function CustomChatInput({
   onBlur,
   onFilesPaste,
   className = "",
+  containerClassName = "",
   buttonClassName = "",
 }: CustomChatInputProps) {
   const [canSubmit, setCanSubmit] = React.useState(false);
@@ -194,6 +196,7 @@ export function CustomChatInput({
           hasStartedConversation={hasStartedConversation}
           isNewConversationPending={isNewConversationPending}
           showButton={showButton}
+          containerClassName={containerClassName}
           buttonClassName={buttonClassName}
           chatInputRef={chatInputRef}
           placeholder={placeholder}

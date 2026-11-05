@@ -7,12 +7,12 @@ export function HomeHeaderTitle() {
 
   return (
     <div className="flex w-full flex-col items-center gap-2 py-2">
-      <Typography.H1 className="w-full text-center leading-normal">
+      <Typography.H1 className="w-full text-center text-2xl leading-normal text-white md:text-4xl">
         {t(I18nKey.HOME$WHAT_TO_WORK_ON)}
       </Typography.H1>
       <p
         data-testid="home-header-subtitle"
-        className="text-center text-[var(--oh-text-tertiary)]"
+        className="hidden text-center text-[var(--oh-text-tertiary)] md:block"
       >
         {t(I18nKey.HOME$ENGINEERING_TASKS_SUBHEADER)}
       </p>

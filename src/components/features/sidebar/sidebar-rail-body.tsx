@@ -130,21 +130,23 @@ export function SidebarRailBody({
               : "flex min-w-0 shrink-0 items-center",
           )}
         >
-          <div
-            className={cn(
-              collapsed &&
-                showCollapseToggle &&
-                "flex h-full w-full items-center justify-start pl-2.5 transition-opacity duration-150",
-              collapsed && showCollapsedExpandButton && "opacity-0",
-            )}
-          >
-            <OpenHandsLogoButton
-              logoWidth={SIDEBAR_LOGO_WIDTH}
-              logoHeight={SIDEBAR_LOGO_HEIGHT}
-              logoClassName="max-w-none"
-              className={cn(SIDEBAR_ICON_SLOT_CLASS, "overflow-visible")}
-            />
-          </div>
+          {!showMobileCloseButton ? (
+            <div
+              className={cn(
+                collapsed &&
+                  showCollapseToggle &&
+                  "flex h-full w-full items-center justify-start pl-2.5 transition-opacity duration-150",
+                collapsed && showCollapsedExpandButton && "opacity-0",
+              )}
+            >
+              <OpenHandsLogoButton
+                logoWidth={SIDEBAR_LOGO_WIDTH}
+                logoHeight={SIDEBAR_LOGO_HEIGHT}
+                logoClassName="max-w-none"
+                className={cn(SIDEBAR_ICON_SLOT_CLASS, "overflow-visible")}
+              />
+            </div>
+          ) : null}
           {collapsed && showCollapseToggle ? (
             <button
               type="button"
