@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     supabase_timeout_seconds: float = 5.0
     redis_url: str | None = None
 
+    # Agent execution
+    agent_server_url: str | None = None
+    agent_server_api_key: str | None = None
+    agent_server_timeout_seconds: float = 30.0
+    agent_server_workspace_root: str = '/workspace'
+    # LLM the Agent Server must use for a run. The server never inherits its own
+    # settings into a conversation, so the caller has to send them.
+    agent_server_llm_model: str | None = None
+    agent_server_llm_base_url: str | None = None
+    agent_server_llm_api_key: str | None = None
+
     # Storage
     max_upload_bytes: int = 52428800  # 50 MiB, matches supabase/config.toml
     storage_signed_url_ttl_seconds: int = 600
