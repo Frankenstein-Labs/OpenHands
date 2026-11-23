@@ -17,11 +17,51 @@ class RunsRepository:
     def __init__(self, client: SupabaseClient) -> None:
         self.client = client
 
-    async def create(self, access_token: str, organization_id: UUID, user_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def enqueue(
+        self,
+        access_token: str,
+        *,
+        organization_id: UUID,
+        agent_id: UUID | None,
+        model_id: str | None,
+        conversation_id: str | None,
+        prompt: str | None,
+        budget_credits: float,
+        idempotency_key: str | None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        # The database function decides admission under a row lock, so two
+        # concurrent requests cannot both pass the quota check.
         result = await self.client.request(
-            'POST', 'agent_runs', access_token=access_token,
-            json={**data, 'organization_id': str(organization_id), 'created_by': user_id},
-            prefer='return=representation',
+            'POST', 'rpc/enqueue_agent_run', access_token=access_token,
+            json={
+                'target_organization_id': str(organization_id),
+                'target_agent_id': str(agent_id) if agent_id else None,
+                'target_model_id': model_id,
+                'target_conversation_id': conversation_id,
+                'target_prompt': prompt,
+                'target_budget_credits': budget_credits,
+                'target_idempotency_key': idempotency_key,
+                'target_metadata': metadata or {},
+            },
+        )
+        return result[0] if isinstance(result, list) else result
+
+    async def settle(
+        self,
+        run_id: UUID,
+        status: str,
+        credits_used: float,
+        error: str | None = None,
+    ) -> dict[str, Any] | None:
+        result = await self.client.request(
+            'POST', 'rpc/settle_agent_run', admin=True,
+            json={
+                'target_run_id': str(run_id),
+                'target_status': status,
+                'target_credits_used': credits_used,
+                'target_error': error,
+            },
         )
         return result[0] if isinstance(result, list) else result
 
