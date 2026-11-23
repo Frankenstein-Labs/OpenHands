@@ -43,17 +43,73 @@ Statuses (enforced by `agent_runs.status`): `queued`, `provisioning`, `running`,
 - Hard timeout and automatic teardown; idle environments are reaped by the
   worker (`reap_stale_runs`).
 
-## Worker cleanup
+## Admission, reservation and settlement
 
-`apps/api/app/worker/handlers.py::reap_stale_runs` marks active runs older than
-`older_than_minutes` (default 120) as `expired`, so abandoned runs cannot hold
-quotas forever. The job is idempotent.
+Admission is a single database function, `public.enqueue_agent_run`, not a
+read-then-write sequence in Python:
+
+1. it replays `(organization_id, idempotency_key)` when the caller retries;
+2. it locks the organization's entitlement row;
+3. it counts active runs and compares them with `limits.max_concurrent_runs`;
+4. it refuses the run when `credits_used + credits_reserved + budget` exceeds
+   `credits_limit`;
+5. it reserves the budget and inserts the run in the same transaction.
+
+`public.settle_agent_run` releases the reservation, books real usage and returns
+the run unchanged when it is already terminal, so a cancel, a retry or a
+redelivered job cannot refund twice. `POST /api/v1/runs` forwards the
+`Idempotency-Key` header to the function.
+
+## Queue and worker
+
+- Jobs live in a Redis Stream consumer group (`cortex:jobs`, group
+  `cortex-workers`). Unacknowledged entries stay in the pending list, so a worker
+  crash does not lose the job.
+- A consumer reclaims pending entries idle for 60 s. Entries delivered more than
+  `max_attempts` times go to `cortex:jobs:dead`.
+- Failures are retried with exponential backoff (2 s, 4 s, … capped at 300 s)
+  through a sorted set promoted when due.
+- A per-job lock (`cortex:jobs:lock:{job_id}`, 900 s) prevents a redelivered job
+  from running twice while the original consumer still holds it.
+- The worker stops cleanly on SIGTERM/SIGINT, and a job that exhausts its retries
+  settles its run as `failed` so credits are never left reserved.
+
+Handlers:
+
+| Job | Effect |
+|---|---|
+| `execute_agent_run` | `queued` → `provisioning` → `running`, starts an Agent Server conversation, schedules reconciliation |
+| `reconcile_agent_run` | Polls the conversation, settles `completed`/`failed`, reschedules while running |
+| `reap_stale_runs` | Marks active runs older than `older_than_minutes` (default 120) as `expired` |
+
+## Environment
+
+| Variable | Purpose |
+|---|---|
+| `REDIS_URL` | Queue and coordination |
+| `AGENT_SERVER_URL` | OpenHands Agent Server base URL |
+| `AGENT_SERVER_API_KEY` | Session key sent as `X-Session-API-Key` |
+| `AGENT_SERVER_WORKSPACE_ROOT` | Parent directory for per-run workspaces |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Durable state and settlement |
 
 ## Status in this phase
 
-- Control plane (quota checks, run rows, events, cancellation, cleanup) is
-  implemented and unit-tested.
-- Sandbox provisioning itself is delegated to the OpenHands Agent Server and is
-  not yet executed against a hosted runner in this environment.
-- Real isolation limits must be verified on the target container platform before
-  beta.
+Proven with real infrastructure:
+
+- 10 integration tests against a real `redis:7-alpine` container: idempotent
+  enqueue, ack, retry with backoff, dead letter, crash reclaim, lock
+  exclusivity, duplicate-delivery skip, delayed promotion.
+- Local Postgres suite and the hosted development project prove atomic
+  reservation, idempotent replay, concurrency limit, cross-tenant rejection,
+  settlement and refund.
+- 7 tests cover the runner client and the execute/reconcile handlers with a
+  stubbed Agent Server transport.
+
+Not proven:
+
+- No Agent Server is configured here, so no conversation has actually run; the
+  runner raises `RunnerUnavailable` until `AGENT_SERVER_URL` is set.
+- `credits_used` is settled from the run row (currently 0) because no token
+  metering is wired to the Agent Server yet.
+- Sandbox isolation limits (CPU, RAM, disk, network, host secrets) must be
+  verified on the target container platform before beta.

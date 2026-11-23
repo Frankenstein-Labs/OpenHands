@@ -10,7 +10,20 @@ pytest -q
 ruff check app tests
 ```
 
-Current result: **67 tests passed**, `ruff` clean.
+Current result: **94 tests passed**, `ruff` clean.
+
+Two suites need real infrastructure and skip themselves when it is missing:
+
+```bash
+# Redis queue integration tests: starts a redis:7-alpine container per module
+pytest -q tests/test_worker.py
+
+# SQL migrations, RLS and run accounting on a disposable Postgres
+bash ../../scripts/verify-supabase-local.sh
+
+# Hosted development project (requires SUPABASE_* and CORTEX_VERIFY_ENV)
+python ../../scripts/verify-supabase-isolation.py
+```
 
 Coverage by area:
 
@@ -23,14 +36,18 @@ Coverage by area:
 - billing (plans, subscription, checkout abstraction, webhook signature)
 - GitHub App (JWT signing, webhook HMAC, dedupe, revocation)
 - AI gateway (provider parsing/streaming/fallback, metered generation, budget)
-- worker (idempotent enqueue, retry, dead letter)
+- worker (idempotent enqueue, ack, retry with backoff, dead letter, crash
+  reclaim, job lock, delayed promotion) against a real Redis container
+- runner client and execute/reconcile handlers with a stubbed Agent Server
+  transport
 
 ## What is not yet proven
 
-- PostgreSQL execution of migrations and RLS policies (no hosted Supabase).
-- Storage bucket policies and signed URLs against a real project.
 - Live provider calls (no provider credentials configured).
-- Agent Server execution and sandbox isolation limits.
+- Agent Server execution: no `AGENT_SERVER_URL` is configured, so
+  `execute_agent_run` fails with `RunnerUnavailable`.
+- Token metering from the Agent Server, so settled `credits_used` is 0.
+- Sandbox isolation limits on the target container platform.
 - Concurrency/load tests (10 → 25 → 50 → 100 users) — must be run on real
   infrastructure before any capacity claim.
 - Frontend Vitest/typecheck/build for the SaaS additions (no frontend changes
