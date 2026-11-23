@@ -1,0 +1,16 @@
+[project]
+name = "cortex-worker"
+version = "0.1.0"
+description = "Async worker for Cortex.ai (Redis queue + Supabase durable state)"
+requires-python = ">=3.12"
+dependencies = [
+  "openhands-saas-api",
+  "redis>=5.0,<6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["worker"]
+
+[build-system]
+requires = ["hatchling>=1.27,<2.0"]
+build-backend = "hatchling.build"

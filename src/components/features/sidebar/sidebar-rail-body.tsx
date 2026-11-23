@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Boxes,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -211,6 +212,14 @@ export function SidebarRailBody({
           testId="sidebar-conversations-link"
           collapsed={collapsed}
           icon={<Plus width={ICON_SIZE} height={ICON_SIZE} />}
+        />
+        <SidebarNavLink
+          to="/cortex"
+          // eslint-disable-next-line i18next/no-literal-string -- brand name
+          label="Cortex"
+          testId="sidebar-cortex-link"
+          collapsed={collapsed}
+          icon={<Boxes width={ICON_SIZE} height={ICON_SIZE} />}
         />
         <SidebarNavLink
           to={CUSTOMIZE_PATH}

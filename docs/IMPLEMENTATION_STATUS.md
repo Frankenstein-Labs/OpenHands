@@ -13,13 +13,13 @@ Transform OpenHands Agent Canvas into an independent SaaS platform based on Open
 | Phase 2 — Supabase foundation | In progress | Added `supabase/config.toml`, foundation migration and incremental `20261123041000_organizations_invitations.sql`; CLI `3.2.0` works. Schema now includes organizations, memberships, viewer role, invitations, plans, entitlements, usage, audit logs, RLS helpers/policies and three private Storage buckets. | `supabase db lint --local` cannot start because Docker is unavailable; SQL has not yet been executed against Postgres. |
 | Phase 3 — FastAPI backend | In progress | Added `apps/api` with FastAPI app, settings, CORS, lifecycle logging, health/readiness/auth routes, JWT/JWKS verification, Supabase REST client, Dockerfile and tests. Backend tests: 10 passed; OpenAPI route check passed. | No hosted Supabase endpoint has been verified. Redis workers and database integration tests remain. |
 | Phase 4 — Auth and multi-tenancy | In progress | Added membership list/add/update/remove routes, owner transfer route, repository/service separation, role checks, protected SQL RPC mutations and negative elevation/isolation tests. Backend suite: 14 passed. | Invitations API, Storage isolation and real PostgreSQL/RLS tests remain. |
-| Phase 5 — GitHub App | Not started | Existing Git integrations are not a per-customer GitHub App implementation. | Requires GitHub App registration and server-side installation flow. |
-| Phase 6 — AI Gateway | Not started | Existing model/provider services are client/backend adapters, not the SaaS cost authority. | Requires server-side provider credential and usage design. |
-| Phase 7 — OpenHands runner | Not started | Existing Agent Server integrations remain the compatibility base. | Requires secure runner boundary and quota checks. |
-| Phase 8 — Redis/workers | Not started | No SaaS worker service exists in this repository. | Requires FastAPI job contracts. |
-| Phase 9 — Supabase Storage/RAG | Not started | No Supabase Storage buckets or ingestion pipeline exists. | Requires private bucket policy and file ACL design. |
-| Phase 10 — Billing/quotas | Not started | No payment provider, plans or server entitlements exist. | Provider remains intentionally decoupled; implement after usage authority. |
-| Phase 11 — SaaS/admin UI | Not started | Canvas settings exist; SaaS dashboard/admin surfaces do not. | Must connect only to working backend contracts. |
+| Phase 5 — GitHub App | Implemented (code + unit tests) | `app/github/` (RS256 app JWT, installation token, repository listing), `app/api/v1/github.py` (link/list installations and repositories, signed webhook endpoint), webhook dedupe by delivery id, revocation on `installation.deleted`. 8 unit tests. | A real GitHub App registration, private key and webhook URL are required to verify live. |
+| Phase 6 — AI Gateway | Implemented (metered endpoint) | `app/ai_gateway/` provider abstraction (OpenAI-compatible, OpenRouter, Together, Hugging Face, Vercel AI Gateway, Frankenstein), capability-aware routing with retry rules, catalogue from `ai_models`/`ai_providers`, `POST /api/v1/ai/generate` with 402 budget enforcement and atomic usage accounting. 16 unit tests. | No provider credential is configured, so live generation is unproven. Cloudflare Workers AI adapter not implemented. |
+| Phase 7 — OpenHands runner | Control plane implemented | `agent_runs`/`agent_run_events`, create/get/cancel/events routes, concurrent-run quota, budget reservation, worker cleanup (`reap_stale_runs`). 6 unit tests. | Sandbox provisioning is delegated to the Agent Server; isolation limits must be verified on the target platform. |
+| Phase 8 — Redis/workers | Implemented | `apps/api/app/worker/` (job envelope, Redis queue with idempotent enqueue, retry, dead letter), `apps/worker/` package and Dockerfile. 4 unit tests. | No managed Redis provisioned yet. |
+| Phase 9 — Supabase Storage/RAG | Storage + RAG implemented (code + unit tests) | Private buckets, `files` presign/list/delete routes, and `documents`/`document_chunks` with `match_document_chunks`; `POST/GET/DELETE /api/v1/documents` and `GET /api/v1/documents/search` ingest text in-process and search by cosine distance. 6 unit tests. | Embeddings are generated only when a provider returns them; hosted Supabase (pgvector) is required to verify the SQL function. |
+| Phase 10 — Billing/quotas | Billing abstraction + quotas implemented | Provider-neutral billing service, plans/subscription/checkout/invoices routes, signed idempotent webhook, server-side quota and credit enforcement. 6 unit tests. | No Stripe account configured; no real charge is possible or attempted. |
+| Phase 11 — SaaS/admin UI | First slice implemented | `/cortex` workspace: Supabase Auth sign-in/up/out with refresh, profile, organization switch, members/invitations, model catalogue + metered playground, usage/limits, documents + search, GitHub installations/repositories. Backed by the real FastAPI routes; 5 new tests. | Cortex surfaces are English-only (file-scoped `i18next/no-literal-string` disable) until translations land. The verify-openhands feature map does not yet cover `/cortex`, so `map coverage` reports it as unmapped. |
 | Phase 12 — Production validation | Not started | Existing CI/Docker release machinery is present but SaaS stack is absent. | Requires integration, security, load, backup and restore evidence. |
 
 ## Phase 2 change log
@@ -53,3 +53,72 @@ Transform OpenHands Agent Canvas into an independent SaaS platform based on Open
 ## Verification policy
 
 A phase is not complete until its listed checks have actually run and their results are recorded. Phase 1 is complete for the frontend baseline, with the environment limitations above recorded. No external Supabase, GitHub, payment or production deployment is claimed as connected until independently verified.
+
+## Phase 5–10 change log (current pass)
+
+Backend (`apps/api`):
+
+- GitHub App: `app/github/{app_auth,webhooks}.py`, `app/repositories/github.py`,
+  `app/services/github.py`, `app/schemas/github.py`, `app/api/v1/github.py`.
+- AI gateway: `app/schemas/ai_gateway.py`, `app/services/ai_gateway.py`,
+  `app/api/v1/ai_gateway.py`, metered `POST /api/v1/ai/generate`.
+- Usage accounting: `supabase/migrations/20261123050000_usage_accounting.sql`
+  (atomic, idempotent `record_usage_event`), `UsageRepository.record_event`.
+- Worker: `app/worker/{queue,handlers,main}.py`, `apps/worker/` package and
+  Dockerfile.
+- Alignment fixes against the real migrations: `agent_runs` table, `billing_*`
+  tables, invitation RPC token hash, file `deleted_at`.
+- Routers registered: 14 total (health, auth, profile, organizations,
+  memberships, invitations, models, agents, runs, usage, files, billing,
+  github, ai-gateway).
+
+Verification: `pytest -q` → 67 passed; `ruff check app tests` → clean.
+
+Documentation added: `CORTEX_ARCHITECTURE.md`, `CORTEX_SECURITY.md`,
+`CORTEX_DEPLOYMENT.md`, `SUPABASE_ACCESS_REQUIREMENTS.md`, `AI_GATEWAY.md`,
+`AGENT_RUNNER.md`, `TESTING.md`, `CORTEX_DECISIONS.md`.
+
+Still blocked on external access: hosted Supabase migrations/RLS, GitHub App
+registration, AI provider credentials, Redis provisioning, Stripe. See
+`docs/SUPABASE_ACCESS_REQUIREMENTS.md`.
+
+
+## Phase 9 RAG + Phase 11 Cortex UI change log (current pass)
+
+Backend:
+
+- `supabase/migrations/20261123051000_rag_documents.sql`: `documents`,
+  `document_chunks`, org-scoped RLS, `match_document_chunks` (security invoker).
+- `supabase/migrations/20261123052000_cortex0_catalog.sql`: Cortex-0 catalogue
+  row as `preview` so it is listed but never marked available.
+- `app/schemas/documents.py`, `app/repositories/documents.py`,
+  `app/services/documents.py`, `app/api/v1/documents.py` (ingest, list, get,
+  delete, semantic search).
+- Platform-admin catalogue writes: `POST/PATCH /api/v1/providers` and
+  `POST/PATCH /api/v1/models`, guarded by `CORTEX_PLATFORM_ADMIN_USER_IDS`
+  (empty by default, so no one is an admin until configured). Writes use the
+  service role; reads stay on the user JWT.
+- Verification harness: `scripts/verify-supabase-isolation.py` and
+  `docs/SUPABASE_VERIFICATION_PLAN.md`. The harness refuses production and
+  remote URLs by default, creates two users/organizations, and asserts that
+  tenant B cannot read or write tenant A's rows.
+
+Frontend:
+
+- `src/api/cortex/` — Supabase Auth REST (no new dependency), session refresh,
+  typed `cortexFetch`, React Query hooks for every SaaS route.
+- `/cortex` route tree with Overview, Organization, Models, Usage, Documents,
+  Integrations and Profile pages; sidebar entry `Cortex`.
+- Agent Canvas routes, components, i18n and settings are untouched except for
+  the added sidebar link (the brand string is exempted from the literal-string rule).
+
+Verification:
+
+- Backend: `pytest -q` → 78 passed; `ruff check app tests` → clean.
+- Frontend: `npm run typecheck` → 0 errors; `npm run lint` → 0 errors;
+  `npm run build` → success; new Vitest files → 5 passed.
+- `python scripts/verify-supabase-isolation.py` without credentials exits 1 with
+  a clear message; production and remote guards were exercised.
+- Known gap: the `verify-openhands` feature map does not list `/cortex`, so the
+  skill's `map coverage` test fails. Per `AGENTS.md`, verification-skill maps are
+  not edited by implementors; the follow-up belongs in a separate PR.

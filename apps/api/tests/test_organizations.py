@@ -9,7 +9,6 @@ from app.main import app
 from app.security.jwt import CurrentUser, get_access_token, get_current_user
 from app.services.organizations import OrganizationNotFound
 
-
 ORG_ID = uuid4()
 ORG = {
     'id': ORG_ID,

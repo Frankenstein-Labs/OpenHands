@@ -75,6 +75,54 @@ class SupabaseClient:
     async def rpc(self, function_name: str, payload: dict[str, Any], *, access_token: str) -> Any:
         return await self.request('POST', f'rpc/{function_name}', access_token=access_token, json=payload)
 
+    async def _storage_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        access_token: str,
+        json: Any = None,
+    ) -> Any:
+        headers = {
+            'apikey': self.settings.supabase_anon_key or '',
+            'Authorization': f'Bearer {access_token}',
+        }
+        try:
+            response = await self.client.request(
+                method,
+                f'{self.base_url}/storage/v1/{path.lstrip("/")}',
+                headers=headers,
+                json=json,
+            )
+        except httpx.HTTPError as exc:
+            raise SupabaseRequestError(503, 'Supabase storage is unavailable') from exc
+        if response.is_error:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = response.text[:500]
+            raise SupabaseRequestError(response.status_code, detail)
+        if not response.content:
+            return None
+        return response.json()
+
+    async def storage_sign_upload(self, access_token: str, bucket: str, object_path: str) -> Any:
+        return await self._storage_request(
+            'POST', f'object/upload/sign/{bucket}/{object_path}',
+            access_token=access_token, json={},
+        )
+
+    async def storage_sign_download(self, access_token: str, bucket: str, object_path: str, expires_in: int) -> Any:
+        return await self._storage_request(
+            'POST', f'object/sign/{bucket}/{object_path}',
+            access_token=access_token, json={'expiresIn': expires_in},
+        )
+
+    async def storage_delete(self, access_token: str, bucket: str, object_path: str) -> Any:
+        return await self._storage_request(
+            'DELETE', f'object/{bucket}/{object_path}', access_token=access_token,
+        )
+
 
 async def get_supabase_client(settings: Settings = Depends(get_settings)) -> AsyncIterator[SupabaseClient]:
     client = SupabaseClient(settings)

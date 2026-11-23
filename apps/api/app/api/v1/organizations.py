@@ -2,7 +2,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.database.supabase import SupabaseClient, SupabaseNotConfigured, SupabaseRequestError, get_supabase_client
+from app.database.supabase import (
+    SupabaseClient,
+    SupabaseNotConfigured,
+    SupabaseRequestError,
+    get_supabase_client,
+)
 from app.schemas.organizations import OrganizationCreate, OrganizationResponse, OrganizationUpdate
 from app.security.jwt import CurrentUser, get_access_token, get_current_user
 from app.services.organizations import OrganizationNotFound, OrganizationsService

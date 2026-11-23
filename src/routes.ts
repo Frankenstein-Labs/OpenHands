@@ -43,6 +43,15 @@ export default [
     route("automations/new/:automationId", "routes/automation-setup-route.tsx"),
     route("automations/setup", "routes/automation-setup-new.tsx"),
     route("automations/:automationId", "routes/automation-detail.tsx"),
+    route("cortex", "routes/cortex.tsx", [
+      index("routes/cortex-overview.tsx"),
+      route("organization", "routes/cortex-organization.tsx"),
+      route("models", "routes/cortex-models.tsx"),
+      route("usage", "routes/cortex-usage.tsx"),
+      route("documents", "routes/cortex-documents.tsx"),
+      route("integrations", "routes/cortex-integrations.tsx"),
+      route("profile", "routes/cortex-profile.tsx"),
+    ]),
     // Unknown URLs (including /settings/<x>) render inside the app shell.
     route("*", "routes/not-found.tsx"),
   ]),

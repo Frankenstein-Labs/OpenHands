@@ -25,6 +25,39 @@ class Settings(BaseSettings):
     supabase_timeout_seconds: float = 5.0
     redis_url: str | None = None
 
+    # Storage
+    max_upload_bytes: int = 52428800  # 50 MiB, matches supabase/config.toml
+    storage_signed_url_ttl_seconds: int = 600
+
+    # AI Gateway: provider id -> server-only credential / endpoint override.
+    ai_provider_credentials: dict[str, str] = {}
+    ai_provider_base_urls: dict[str, str] = {}
+    ai_gateway_timeout_seconds: float = 60.0
+    ai_gateway_credits_per_1k_tokens: float = 1.0
+
+    # GitHub App (server-only; no personal access token is shared across tenants)
+    github_app_id: str | None = None
+    github_app_slug: str | None = None
+    github_app_private_key: str | None = None
+    github_webhook_secret: str | None = None
+    github_api_base_url: str = 'https://api.github.com'
+
+    # Billing (provider-neutral; Stripe optional)
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_price_ids: dict[str, str] = {}
+    billing_success_url: str | None = None
+    billing_cancel_url: str | None = None
+    # Platform operators allowed to edit the global AI catalogue.
+    platform_admin_user_ids: list[str] = []
+
+    @field_validator('platform_admin_user_ids', mode='before')
+    @classmethod
+    def parse_platform_admin_user_ids(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(',') if item.strip()]
+        return value
+
     @field_validator('cors_origins', mode='before')
     @classmethod
     def parse_cors_origins(cls, value: object) -> object:

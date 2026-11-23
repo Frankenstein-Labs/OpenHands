@@ -4,12 +4,9 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.config import Settings
-from app.main import app
-from app.security.jwt import SupabaseJWTVerifier, get_current_user
+from app.security.jwt import JWTVerificationError, SupabaseJWTVerifier
 
 
 @pytest.fixture
@@ -69,6 +66,6 @@ async def test_expired_jwt_is_rejected(rsa_keypair) -> None:
         headers={'kid': 'test-key'},
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(JWTVerificationError):
         await verifier.verify(token)
     await verifier.close()
