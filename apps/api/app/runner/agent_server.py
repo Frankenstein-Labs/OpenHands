@@ -36,8 +36,8 @@ class AgentServerRunner:
             headers['X-Session-API-Key'] = self.settings.agent_server_api_key
         return headers
 
-    def _url(self, path: str) -> str:
-        base = (self.settings.agent_server_url or '').rstrip('/')
+    def _url(self, path: str, base_url: str | None = None) -> str:
+        base = (base_url or self.settings.agent_server_url or '').rstrip('/')
         return f'{base}{path}'
 
     async def start(
@@ -47,6 +47,8 @@ class AgentServerRunner:
         model_id: str | None = None,
         title: str | None = None,
         working_dir: str | None = None,
+        base_url: str | None = None,
+        **_: object,
     ) -> dict:
         if not self.configured:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
@@ -76,28 +78,36 @@ class AgentServerRunner:
         if title:
             payload['title'] = title
         response = await self._http().post(
-            self._url('/api/conversations'), headers=self._headers(), json=payload
+            self._url('/api/conversations', base_url),
+            headers=self._headers(),
+            json=payload,
         )
         response.raise_for_status()
         return response.json()
 
-    async def status(self, conversation_id: str) -> dict:
-        if not self.configured:
+    async def status(self, conversation_id: str, *, base_url: str | None = None) -> dict:
+        if not self.configured and not base_url:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         response = await self._http().get(
-            self._url(f'/api/conversations/{conversation_id}'), headers=self._headers()
+            self._url(f'/api/conversations/{conversation_id}', base_url),
+            headers=self._headers(),
         )
         response.raise_for_status()
         return response.json()
 
-    async def cancel(self, conversation_id: str) -> None:
-        if not self.configured:
+    async def cancel(self, conversation_id: str, *, base_url: str | None = None) -> None:
+        if not self.configured and not base_url:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         response = await self._http().post(
-            self._url(f'/api/conversations/{conversation_id}/interrupt'), headers=self._headers()
+            self._url(f'/api/conversations/{conversation_id}/interrupt', base_url),
+            headers=self._headers(),
         )
         if response.status_code >= 400:
             raise RunnerUnavailable(f'cancel failed with {response.status_code}')
+
+    async def stop_sandbox(self, sandbox: dict | None = None) -> None:
+        """The shared runner owns no sandbox."""
+        return None
 
     async def aclose(self) -> None:
         if self._client is not None and self._owns_client:

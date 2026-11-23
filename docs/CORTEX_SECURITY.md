@@ -67,10 +67,40 @@ or invitations.
 - Structured logs with correlation ids; no tokens, passwords or private payloads.
 - Security-relevant actions are recorded in `audit_logs` (server write only).
 
+## Tenant provider credentials
+
+- Provider keys are tenant data. They are encrypted with Fernet
+  (`CORTEX_SECRET_KEY`) in the API and only ciphertext reaches Postgres.
+- `organization_ai_credentials` has RLS enabled and **no policy**, so a
+  browser session cannot read it even for its own organization. Admins read
+  metadata (`provider_id`, `key_last4`, timestamps) through a definer function
+  that checks `owner`/`admin`; ciphertext is readable only with the service
+  role, through `organization_ai_credential_secrets`.
+- Without `CORTEX_SECRET_KEY` the API refuses to store a key rather than keep it
+  in plaintext. A masked placeholder (`**********`) is rejected.
+- The gateway merges the organization's keys per request instead of mutating a
+  shared registry, so two concurrent tenants can never see each other's keys.
+  A key that cannot be decrypted is skipped and logged, never substituted.
+- Per-organization monthly token ceilings and per-1k-token rates are enforced
+  before the provider is called, using service-role reads so a client cannot
+  raise its own limits.
+
+## Sandbox posture
+
+See `docs/CORTEX_ISOLATION.md`. In short: one container per run, non-root, no
+capabilities, read-only root, private `/tmp`, internal network without
+published ports, CPU/RAM/PID/disk/time limits, and a reaper for abandoned
+sandboxes. The Docker socket is never mounted into a sandbox.
+
 ## Known gaps (tracked, not hidden)
 
-- Hosted Supabase, RLS and Storage have not been executed yet; only SQL syntax
-  and unit tests exist locally.
+- Hosted Supabase, RLS and Storage have not been executed yet; only the local
+  Postgres harness and unit tests exist. `scripts/verify-supabase-local.sh`
+  runs the real migrations, policies and functions, including tenant security
+  assertions.
 - Rate limiting and CSRF protection depend on deployment (reverse proxy / cookie
   mode) and are not yet enabled.
-- Load and concurrency tests beyond the unit suite are not yet run.
+- Load testing covers run admission up to 100 concurrent users
+  (`docs/CORTEX_ISOLATION.md`). End-to-end HTTP load, sandbox startup at scale
+  and multi-host scheduling are not measured yet.
+- Sandbox tests use `alpine:3.20`, not a real Agent Server image.

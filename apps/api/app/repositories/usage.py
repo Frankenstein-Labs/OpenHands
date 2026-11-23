@@ -58,6 +58,21 @@ class UsageRepository:
         )
         return result if isinstance(result, dict) else None
 
+    async def tokens_since(self, organization_id: UUID, since_iso: str) -> int:
+        """Total LLM tokens booked by an organization since a timestamp."""
+        rows = await self.client.request(
+            'GET',
+            'usage_events',
+            admin=True,
+            params={
+                'select': 'quantity',
+                'organization_id': f'eq.{organization_id}',
+                'event_type': 'eq.llm_tokens',
+                'created_at': f'gte.{since_iso}',
+            },
+        )
+        return int(sum(float(row['quantity']) for row in rows or []))
+
     async def list_usage_events(self, access_token: str, organization_id: UUID) -> list[dict[str, Any]]:
         result = await self.client.request(
             'GET', 'usage_events', access_token=access_token,

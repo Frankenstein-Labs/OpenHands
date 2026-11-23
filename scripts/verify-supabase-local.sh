@@ -35,10 +35,10 @@ docker exec "$NAME" pg_isready -U postgres -q
 psql_run() { docker exec "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q "$@" < /dev/null; }
 psql_file() { local file="$1"; shift; docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q "$@" -f - < "$file"; }
 
-echo '1/5 bootstrapping Supabase-like auth and storage schemas'
+echo '1/6 bootstrapping Supabase-like auth and storage schemas'
 psql_file "$ROOT/scripts/supabase-local-bootstrap.sql"
 
-echo '2/5 applying migrations'
+echo '2/6 applying migrations'
 for file in "$ROOT"/supabase/migrations/*.sql; do
   echo "   $(basename "$file")"
   psql_file "$file"
@@ -53,13 +53,17 @@ psql_run -c "
   grant usage, select on all sequences in schema public to authenticated, service_role;
 "
 
-echo '3/5 running isolation assertions'
+echo '3/6 running isolation assertions'
 docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -tA -f - \
   < "$ROOT/scripts/supabase-local-rls.sql"
 
-echo '4/5 running run-admission and settlement assertions'
+echo '4/6 running run-admission and settlement assertions'
 docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -tA -f - \
   < "$ROOT/scripts/supabase-local-run-controls.sql"
 
-echo '5/5 done'
+echo '5/6 running tenant security assertions'
+docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -tA -f - \
+  < "$ROOT/scripts/supabase-local-tenant-security.sql"
+
+echo '6/6 done'
 echo 'PASS: migrations apply and RLS isolates two tenants on a fresh database'

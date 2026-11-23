@@ -94,10 +94,17 @@ async def execute_agent_run(ctx: WorkerContext, job: Job) -> dict[str, Any]:
         prompt=run.get('prompt') or '',
         model_id=run.get('model_id'),
         title=f'cortex-run-{run_id}',
-        working_dir=f'{ctx.runner.settings.agent_server_workspace_root}/{run_id}',
+        run_id=run_id,
+        organization_id=run.get('organization_id'),
     )
     conversation_id = conversation.get('id') or conversation.get('conversation_id')
-    await _patch_run(ctx, run_id, {'status': 'running', 'conversation_id': conversation_id})
+    fields: dict[str, Any] = {'status': 'running', 'conversation_id': conversation_id}
+    sandbox = conversation.get('sandbox')
+    if sandbox:
+        # Kept on the run so a restarted worker can reach the sandbox and can
+        # stop it even after a crash.
+        fields['metadata'] = {**(run.get('metadata') or {}), 'sandbox': sandbox}
+    await _patch_run(ctx, run_id, fields)
 
     await ctx.queue.schedule(
         new_job(
@@ -142,16 +149,27 @@ async def reconcile_agent_run(ctx: WorkerContext, job: Job) -> dict[str, Any]:
     if run is None or run['status'] in TERMINAL_STATUSES:
         return {'skipped': 'terminal'}
 
-    state = await ctx.runner.status(conversation_id)
+    sandbox = (run.get('metadata') or {}).get('sandbox')
+    base_url = (sandbox or {}).get('api_url')
+    state = await ctx.runner.status(conversation_id, base_url=base_url)
     status = str(state.get('execution_status') or state.get('status') or '').lower()
     if status in {'finished', 'completed', 'idle'}:
         credits = await _credits_for_run(ctx, run, state)
+        await ctx.runner.stop_sandbox(sandbox)
         await _settle(ctx, run_id, 'completed', credits_used=credits)
         return {'settled': 'completed', 'credits_used': credits}
     if status in {'error', 'failed', 'stuck', 'stopped'}:
         credits = await _credits_for_run(ctx, run, state)
+        await ctx.runner.stop_sandbox(sandbox)
         await _settle(ctx, run_id, 'failed', credits_used=credits, error=f'agent server reported {status}')
         return {'settled': 'failed', 'credits_used': credits}
+
+    try:
+        await ctx.runner.enforce_limits(sandbox)
+    except Exception as exc:
+        await ctx.runner.stop_sandbox(sandbox)
+        await _settle(ctx, run_id, 'failed', error=str(exc))
+        return {'settled': 'failed', 'error': str(exc)}
 
     await ctx.queue.schedule(job, RECONCILE_DELAY_SECONDS)
     return {'rescheduled': True}

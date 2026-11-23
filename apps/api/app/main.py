@@ -16,6 +16,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.invitations import router as invitations_router
 from app.api.v1.memberships import router as memberships_router
 from app.api.v1.models import router as models_router
+from app.api.v1.org_ai import router as org_ai_router
 from app.api.v1.organizations import router as organizations_router
 from app.api.v1.profiles import router as profiles_router
 from app.api.v1.runs import router as runs_router
@@ -69,3 +70,4 @@ app.include_router(invitations_router, prefix='/api/v1')
 app.include_router(github_router, prefix='/api/v1')
 app.include_router(ai_gateway_router, prefix='/api/v1')
 app.include_router(documents_router, prefix='/api/v1')
+app.include_router(org_ai_router, prefix='/api/v1')
