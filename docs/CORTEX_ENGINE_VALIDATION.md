@@ -14,6 +14,7 @@ API at `http://127.0.0.1:60000` (version `1.63.1`).
 | Cortex identity reaches the model | Yes, verbatim answers below |
 | Tools execute in the workspace | Yes: file creation, `pip install`, `pytest` runs |
 | Real token accounting | `usage_to_metrics` reports `model_name: openai/qwen3-4b` |
+| Engine error path | Yes: a timed-out turn produced `ConversationErrorEvent LLMTimeoutError` |
 | Planner identity | Code-level only (unit tests), not run live |
 | ACP identity | Code-level only (no ACP agent binary in this sandbox) |
 
@@ -61,10 +62,20 @@ Observed actions, in order:
 4. `TerminalAction pip install pytest` → installed
 5. `TerminalAction python -m pytest -q` → `FF` (both tests failed)
 
-The run then stalled on a long generation: Qwen3-4B writes verbose reasoning and
-generation is 4.5 tok/s, so a single turn can exceed ten minutes. The failure
-detection and dependency installation above are real, but the fix turn was not
-completed in this sandbox.
+The fix turn then exceeded the LLM hard timeout, and the engine reported it as a
+typed error instead of hanging:
+
+```
+ConversationErrorEvent code=LLMTimeoutError
+litellm.Timeout: LLM hard timeout after 900 seconds. The model did not return a
+complete response within the LLM timeout of 900s (gave up after 1 attempt, 900s
+in total).
+```
+
+So the workspace actions, the failure detection, the dependency installation and
+the engine error path are all real. What did not happen is the fix itself:
+Qwen3-4B generates 4.5 tok/s on 4 vCPU, so a verbose reasoning turn cannot finish
+in 900s. That is a model/throughput limit, not an engine failure.
 
 ## Limits
 
