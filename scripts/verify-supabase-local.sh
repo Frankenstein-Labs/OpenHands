@@ -8,11 +8,14 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="pgvector/pgvector:pg16"
-NAME="cortex-local-pg"
+IMAGE=$(printenv CORTEX_PG_IMAGE || true)
+if [ -z "$IMAGE" ]; then IMAGE=pgvector/pgvector:pg16; fi
+NAME=$(printenv CORTEX_PG_CONTAINER || true)
+if [ -z "$NAME" ]; then NAME=cortex-local-pg; fi
+KEEP=$(printenv CORTEX_KEEP_PG || true)
 
 cleanup() {
-  if [ "0" != "1" ]; then
+  if [ "$KEEP" != "1" ]; then
     docker rm -f "$NAME" >/dev/null 2>&1 || true
   fi
 }
