@@ -6,6 +6,7 @@ from typing import Any
 
 from app.database.supabase import SupabaseRequestError
 from app.worker.context import WorkerContext
+from app.worker.metering import accumulated_usage, credits_for_usage
 from app.worker.queue import Job, new_job
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,28 @@ async def execute_agent_run(ctx: WorkerContext, job: Job) -> dict[str, Any]:
     return {'conversation_id': conversation_id}
 
 
+async def _credits_for_run(ctx: WorkerContext, run: dict[str, Any], state: dict[str, Any]) -> float:
+    usage = accumulated_usage(state)
+    model_id = run.get('model_id')
+    model = None
+    if model_id:
+        rows = await ctx.supabase.request(
+            'GET', 'models', admin=True,
+            params={
+                'select': 'id,input_cost_per_1k,output_cost_per_1k',
+                'id': f'eq.{model_id}',
+                'limit': '1',
+            },
+        )
+        model = rows[0] if rows else None
+    credits = credits_for_usage(usage, model, run.get('budget_credits'))
+    logger.info(
+        'run=%s tokens prompt=%s completion=%s credits=%s',
+        run.get('id'), usage['prompt_tokens'], usage['completion_tokens'], credits,
+    )
+    return credits
+
+
 async def reconcile_agent_run(ctx: WorkerContext, job: Job) -> dict[str, Any]:
     run_id = job.payload.get('run_id')
     conversation_id = job.payload.get('conversation_id')
@@ -122,11 +145,13 @@ async def reconcile_agent_run(ctx: WorkerContext, job: Job) -> dict[str, Any]:
     state = await ctx.runner.status(conversation_id)
     status = str(state.get('execution_status') or state.get('status') or '').lower()
     if status in {'finished', 'completed', 'idle'}:
-        await _settle(ctx, run_id, 'completed')
-        return {'settled': 'completed'}
+        credits = await _credits_for_run(ctx, run, state)
+        await _settle(ctx, run_id, 'completed', credits_used=credits)
+        return {'settled': 'completed', 'credits_used': credits}
     if status in {'error', 'failed', 'stuck', 'stopped'}:
-        await _settle(ctx, run_id, 'failed', error=f'agent server reported {status}')
-        return {'settled': 'failed'}
+        credits = await _credits_for_run(ctx, run, state)
+        await _settle(ctx, run_id, 'failed', credits_used=credits, error=f'agent server reported {status}')
+        return {'settled': 'failed', 'credits_used': credits}
 
     await ctx.queue.schedule(job, RECONCILE_DELAY_SECONDS)
     return {'rescheduled': True}

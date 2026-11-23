@@ -50,6 +50,14 @@ class AgentServerRunner:
     ) -> dict:
         if not self.configured:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
+        llm: dict = {}
+        model = model_id or self.settings.agent_server_llm_model
+        if model:
+            llm['model'] = model
+        if self.settings.agent_server_llm_base_url:
+            llm['base_url'] = self.settings.agent_server_llm_base_url
+        if self.settings.agent_server_llm_api_key:
+            llm['api_key'] = self.settings.agent_server_llm_api_key
         payload: dict = {
             'initial_message': {
                 'role': 'user',
@@ -57,13 +65,16 @@ class AgentServerRunner:
                 'run': True,
             },
             'worktree': False,
+            # The Agent Server answers 422 unless the request carries both an
+            # agent configuration and a workspace, so neither is optional here.
+            'agent_settings': {'llm': llm} if llm else {},
+            'workspace': {
+                'kind': 'LocalWorkspace',
+                'working_dir': working_dir or self.settings.agent_server_workspace_root,
+            },
         }
         if title:
             payload['title'] = title
-        if model_id:
-            payload['agent_settings'] = {'llm': {'model': model_id}}
-        if working_dir:
-            payload['workspace'] = {'kind': 'LocalWorkspace', 'working_dir': working_dir}
         response = await self._http().post(
             self._url('/api/conversations'), headers=self._headers(), json=payload
         )
@@ -83,7 +94,7 @@ class AgentServerRunner:
         if not self.configured:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         response = await self._http().post(
-            self._url(f'/api/conversations/{conversation_id}/stop'), headers=self._headers()
+            self._url(f'/api/conversations/{conversation_id}/interrupt'), headers=self._headers()
         )
         if response.status_code >= 400:
             raise RunnerUnavailable(f'cancel failed with {response.status_code}')
