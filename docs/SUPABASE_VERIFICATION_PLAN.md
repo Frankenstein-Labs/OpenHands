@@ -177,3 +177,42 @@ supabase db push
 `scripts/verify-supabase-isolation.py` now deletes the users and organizations it
 creates in a `finally` block, including when a step fails. Verified: a failing run
 left zero users behind.
+
+
+## 11. Local proof (executed 2026-11-23)
+
+The hosted project still has no DDL credential, so the migrations and policies
+were proven on a disposable Postgres that emulates the Supabase auth surface.
+
+```bash
+scripts/verify-supabase-local.sh
+```
+
+What it does:
+
+1. starts `pgvector/pgvector:pg16` in Docker;
+2. creates `auth.users`, `auth.uid()`, `storage.buckets`, `storage.objects` and
+   the `anon` / `authenticated` / `service_role` roles
+   (`scripts/supabase-local-bootstrap.sql`);
+3. applies all 13 migrations with `ON_ERROR_STOP=1`;
+4. grants table privileges the way Supabase does, so the assertions test
+   policies rather than missing grants;
+5. runs `scripts/supabase-local-rls.sql`.
+
+Result: `PASS`, exit 0, zero assertion failures. Covered:
+
+- two organizations created through `create_organization_with_owner`;
+- tenant B reads 0 rows from tenant A's `agents`, `documents`,
+  `document_chunks`, `organizations` and `organization_memberships`;
+- tenant B's `UPDATE` of tenant A's agent affects 0 rows;
+- tenant B's cross-tenant `INSERT` into `agents` is rejected;
+- tenant B's self-escalation through `organization_memberships` and
+  `add_organization_member` is rejected;
+- tenant A still sees its own rows;
+- signed-out `anon` sees 0 rows;
+- `service_role` sees both organizations;
+- the three private buckets exist and none is public.
+
+This proves the SQL. It does not replace running the same harness against the
+hosted development project, which needs a token that belongs to the account that
+owns the project.
