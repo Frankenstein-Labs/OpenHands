@@ -79,6 +79,48 @@ idempotent. `NoAvailableModel` is raised when nothing matches.
    `record_usage_event` SQL function, which inserts the event and increments
    `organization_entitlements.credits_used` in one transaction.
 
+## Cortex-0 availability (probed 2026-11-23)
+
+Verified with `scripts/verify-ai-provider.py` and a Frankenstein-Labs Hugging
+Face token:
+
+| Fact | Observed |
+|---|---|
+| Token identity | `Frankenstein-Labs` (user), accepted by the HF API |
+| Repository `Frankenstein-Labs/Cortex.0` | `private=True`, `gated=False`, no `pipeline_tag` |
+| Files | `Cortex.0-Q8_0.gguf`, `configs/cortex0.yaml`, `cortex0/` package |
+| HF router chat call | `400 model_not_supported`: "not a chat model" |
+| Other hosted model via the same token | `400 ... not supported by any provider you have enabled` |
+
+Conclusion: **Cortex-0 is not served by Hugging Face Inference Providers.** The
+catalogue entry stays `preview`, and the provider row stays `enabled=false`.
+The token does read the private repository; it does not make the model callable.
+
+To serve it, run the GGUF behind an OpenAI-compatible server (the model card
+documents `llama-server -hf Frankenstein-Labs/Cortex.0 --hf-file
+Cortex.0-Q8_0.gguf --port 8080`), then:
+
+```bash
+export CORTEX_VERIFY_PROVIDER_URL=http://<host>:8080/v1
+export CORTEX_VERIFY_PROVIDER_KEY=<endpoint token, may be empty>
+export CORTEX_VERIFY_MODEL=cortex-0
+python scripts/verify-ai-provider.py --endpoint
+```
+
+Only after that probe returns `OK`:
+
+1. `POST /api/v1/providers/frankenstein-cortex` with `enabled=true` and
+   `base_url` set (platform admin).
+2. `PATCH /api/v1/models/cortex-0` with `status="active"`.
+3. Set `AI_PROVIDER_BASE_URLS` / `AI_PROVIDER_CREDENTIALS` in the API
+   environment, keyed by `frankenstein-cortex`.
+
+Do not download the GGUF onto the API host. A dedicated HF Inference Endpoint is
+an option but is a paid resource and has not been created.
+
+Never commit a provider key. Any token pasted into a chat should be rotated after
+it is configured.
+
 ## Honest limitations
 
 - No provider is configured in this environment, so live generation is not yet
