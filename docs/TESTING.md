@@ -23,6 +23,10 @@ bash ../../scripts/verify-supabase-local.sh
 
 # Hosted development project (requires SUPABASE_* and CORTEX_VERIFY_ENV)
 python ../../scripts/verify-supabase-isolation.py
+
+# Worker end to end against the hosted project and a real Redis
+# (requires SUPABASE_*, REDIS_URL, CORTEX_VERIFY_ENV=development)
+python ../../scripts/verify-worker-hosted.py
 ```
 
 Coverage by area:

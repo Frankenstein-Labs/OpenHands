@@ -104,6 +104,11 @@ Proven with real infrastructure:
   settlement and refund.
 - 7 tests cover the runner client and the execute/reconcile handlers with a
   stubbed Agent Server transport.
+- `scripts/verify-worker-hosted.py` runs the real worker against the hosted
+  development project and a real Redis container. It proves both paths:
+  no Agent Server configured → job dead-lettered, run `failed`, reservation
+  released; stub Agent Server → conversation started, run `completed`,
+  reservation released. Test data is deleted afterwards.
 
 Not proven:
 
