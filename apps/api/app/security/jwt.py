@@ -98,6 +98,14 @@ class SupabaseJWTVerifier:
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def get_access_token(
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+) -> str:
+    if credentials is None or credentials.scheme.lower() != 'bearer':
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Authentication required')
+    return credentials.credentials
+
+
 async def get_jwt_verifier(settings: Settings = Depends(get_settings)) -> AsyncIterator[SupabaseJWTVerifier]:
     verifier = SupabaseJWTVerifier(settings)
     try:

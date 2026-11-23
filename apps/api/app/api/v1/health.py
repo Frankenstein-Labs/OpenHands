@@ -34,8 +34,8 @@ async def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
 async def ready(settings: Settings = Depends(get_settings)) -> ReadyResponse:
     dependencies = {
         'supabase': DependencyStatus(
-            configured=settings.supabase_configured,
-            status='configured' if settings.supabase_configured else 'not_configured',
+            configured=settings.supabase_api_configured and settings.supabase_configured,
+            status='configured' if settings.supabase_api_configured and settings.supabase_configured else 'not_configured',
         ),
         'redis': DependencyStatus(
             configured=bool(settings.redis_url),

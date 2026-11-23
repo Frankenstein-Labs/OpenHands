@@ -10,9 +10,9 @@ Transform OpenHands Agent Canvas into an independent SaaS platform based on Open
 |---|---|---|---|
 | Phase 0 — Audit and architecture | Documented | `OPENHANDS_PRODUCTION_AUDIT.md`, `SAAS_ARCHITECTURE_PROPOSAL.md`, `PHASE_0_SUPABASE_GITHUB_GAP_ANALYSIS.md`, `saas-architecture.mmd` | Architecture constraints are now Supabase + GitHub App + FastAPI. |
 | Phase 1 — Stabilisation | Complete for the frontend baseline | Under Node `24.22.1`: `npm ci --ignore-scripts`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm audit --omit=dev` all passed; Vitest: 931 files passed, 11,029 tests passed, 1 skipped, 7 todo. | Docker and Supabase CLI are not installed in this sandbox, so Docker/Supabase smoke tests remain unverified. The full audit still reports 18 development-tree vulnerabilities (17 moderate, 1 high), through Electron/tooling/ESLint/Tailwind/Stryker chains; no `--force` upgrade was used. |
-| Phase 2 — Supabase foundation | In progress | Added `supabase/config.toml` and migration `20261123040000_saas_foundation.sql`; `npx supabase@3.2.0 --version` works. Migration defines organizations, memberships, plans, entitlements, usage, audit logs, RLS helpers/policies and three private Storage buckets. | `supabase db lint --local` cannot start because Docker is unavailable; SQL has not yet been executed against Postgres. Next: run official lint/migration tests in a Docker-enabled environment, then add FastAPI contracts. |
-| Phase 3 — FastAPI backend | In progress | Added `apps/api` with FastAPI app, settings, CORS, lifecycle logging, `/api/v1/health`, `/api/v1/ready`, `/api/v1/auth/me`, JWT verification module, Dockerfile and tests. Backend tests: 4 passed. | Auth is implemented but no hosted Supabase key endpoint has been verified. Database repositories, organization routes and Redis workers remain. |
-| Phase 4 — Auth and multi-tenancy | Not started | Existing Canvas auth/backend integrations are not a SaaS tenant authority. | Requires Supabase Auth, memberships, RBAC and RLS tests. |
+| Phase 2 — Supabase foundation | In progress | Added `supabase/config.toml`, foundation migration and incremental `20261123041000_organizations_invitations.sql`; CLI `3.2.0` works. Schema now includes organizations, memberships, viewer role, invitations, plans, entitlements, usage, audit logs, RLS helpers/policies and three private Storage buckets. | `supabase db lint --local` cannot start because Docker is unavailable; SQL has not yet been executed against Postgres. |
+| Phase 3 — FastAPI backend | In progress | Added `apps/api` with FastAPI app, settings, CORS, lifecycle logging, health/readiness/auth routes, JWT/JWKS verification, Supabase REST client, Dockerfile and tests. Backend tests: 10 passed; OpenAPI route check passed. | No hosted Supabase endpoint has been verified. Redis workers and database integration tests remain. |
+| Phase 4 — Auth and multi-tenancy | In progress | Added server-side organization list/create/get/update routes, repository/service separation, RLS-preserving bearer forwarding, authenticated tenant-context tests and negative cross-tenant route test. | Membership management, invitations API and real PostgreSQL/RLS isolation tests remain. |
 | Phase 5 — GitHub App | Not started | Existing Git integrations are not a per-customer GitHub App implementation. | Requires GitHub App registration and server-side installation flow. |
 | Phase 6 — AI Gateway | Not started | Existing model/provider services are client/backend adapters, not the SaaS cost authority. | Requires server-side provider credential and usage design. |
 | Phase 7 — OpenHands runner | Not started | Existing Agent Server integrations remain the compatibility base. | Requires secure runner boundary and quota checks. |
@@ -28,11 +28,15 @@ Transform OpenHands Agent Canvas into an independent SaaS platform based on Open
 - Added versioned SQL for tenant authority, membership-based RLS, server-owned usage/audit writes, and private `org-files`, `conversation-exports` and `run-artifacts` buckets.
 - Supabase CLI 3.2.0 is runnable via `npx`; local database lint is blocked by the missing Docker runtime.
 
+- Added incremental migration `20261123041000_organizations_invitations.sql` for `viewer`, invitations and atomic organization-owner bootstrap.
+
 ## Phase 3 change log
 
 - Added an independently installable Python backend under `apps/api` using FastAPI, Pydantic Settings, HTTPX and PyJWT.
 - Added health/readiness endpoints and server-side JWT verification with JWKS cache, issuer, audience, expiration, subject and algorithm checks.
-- Added `GET /api/v1/auth/me`, Dockerfile, `.env.example`, README and four backend tests using generated keys and mocked JWKS responses.
+- Added `GET /api/v1/auth/me`, Dockerfile, `.env.example`, README and backend tests using generated keys and mocked JWKS responses.
+- Added a server-only Supabase REST client with timeout, user-token/RLS mode, optional admin mode and explicit configuration errors.
+- Added organization schemas, repository, service and protected list/create/get/update routes; ten backend tests pass including a negative cross-tenant case and mocked Supabase client checks.
 
 ## Phase 1 change log
 

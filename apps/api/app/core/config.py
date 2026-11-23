@@ -16,10 +16,13 @@ class Settings(BaseSettings):
     log_level: str = 'INFO'
     cors_origins: list[str] = ['http://localhost:5173']
     supabase_url: str | None = None
+    supabase_anon_key: str | None = None
+    supabase_service_role_key: str | None = None
     supabase_jwks_url: str | None = None
     supabase_jwt_issuer: str | None = None
     supabase_jwt_audience: str = 'authenticated'
     supabase_jwt_secret: str | None = None
+    supabase_timeout_seconds: float = 5.0
     redis_url: str | None = None
 
     @field_validator('cors_origins', mode='before')
@@ -48,6 +51,10 @@ class Settings(BaseSettings):
     @property
     def supabase_configured(self) -> bool:
         return bool(self.jwt_issuer and self.jwks_url)
+
+    @property
+    def supabase_api_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_anon_key)
 
 
 @lru_cache
