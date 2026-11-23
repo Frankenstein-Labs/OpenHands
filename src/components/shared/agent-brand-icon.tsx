@@ -1,4 +1,4 @@
-import OpenHandsLogo from "#/assets/branding/openhands-logo.svg?react";
+import CortexLogo from "#/assets/branding/cortex-logo.svg?react";
 import TerminalIcon from "#/icons/terminal.svg?react";
 import {
   CLAUDE_CODE_MARK_PATH,
@@ -24,10 +24,9 @@ import { cn } from "#/utils/utils";
  */
 export type AgentBrandIconKind = "openhands" | ACPProviderIcon;
 
-// The OpenHands wordmark renders at a 3:2 (width:height) ratio. Kept as a
-// named constant so the conversation chip and the onboarding tile (24×16)
-// stay visually identical — see ``AgentOptionIcon`` in choose-agent-step.tsx.
-const OPENHANDS_LOGO_ASPECT_RATIO = 3 / 2;
+// The Cortex mark is square, so the chip and the onboarding tile keep the
+// same visual weight at any size.
+const CORTEX_LOGO_ASPECT_RATIO = 1;
 
 interface AgentBrandIconProps {
   kind: AgentBrandIconKind;
@@ -43,19 +42,11 @@ export function AgentBrandIcon({
   "data-testid": testId,
 }: AgentBrandIconProps) {
   if (kind === "openhands") {
-    // The shipped SVG draws the wordmark with ``fill="white"`` paths but
-    // leaves the two hand shapes as ``fill="transparent"`` (negative space).
-    // Recolor only the non-transparent paths to ``currentColor`` so the logo
-    // inherits the chip's text color *without* filling in the hands — a
-    // blanket ``[&_path]`` selector turns the whole mark into a solid blob.
     return (
-      <OpenHandsLogo
-        width={Math.round(size * OPENHANDS_LOGO_ASPECT_RATIO)}
+      <CortexLogo
+        width={Math.round(size * CORTEX_LOGO_ASPECT_RATIO)}
         height={size}
-        className={cn(
-          "shrink-0 [&_path:not([fill=transparent])]:fill-current",
-          className,
-        )}
+        className={cn("shrink-0", className)}
         data-testid={testId ?? "agent-brand-icon-openhands"}
         aria-hidden
       />

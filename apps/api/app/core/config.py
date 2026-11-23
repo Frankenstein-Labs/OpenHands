@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         extra='ignore',
     )
 
-    app_name: str = 'OpenHands SaaS API'
+    app_name: str = 'Cortex SaaS API'
     app_env: str = 'development'
     log_level: str = 'INFO'
     cors_origins: list[str] = ['http://localhost:5173']

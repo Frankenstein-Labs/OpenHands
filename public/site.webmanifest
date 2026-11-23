@@ -1,7 +1,7 @@
 {
-    "name": "OpenHands",
-    "short_name": "OpenHands",
-    "description": "OpenHands AI-powered development workspace.",
+    "name": "Cortex",
+    "short_name": "Cortex",
+    "description": "Cortex, the AI engineering agent by Frankenstein-Labs.",
     "start_url": "./",
     "scope": "./",
     "categories": ["productivity"],

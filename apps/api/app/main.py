@@ -34,9 +34,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title='OpenHands SaaS API',
+    title='Cortex SaaS API',
     version='0.1.0',
-    description='Independent multi-tenant API foundation for OpenHands SaaS.',
+    description='Multi-tenant API for Cortex, the AI engineering agent by Frankenstein-Labs.',
     lifespan=lifespan,
 )
 app.add_middleware(
