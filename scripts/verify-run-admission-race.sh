@@ -11,10 +11,11 @@
 #   or:  bash scripts/verify-run-admission-race.sh "docker exec <container> psql -U postgres"
 set -uo pipefail
 
+DB_URL=$(printenv DATABASE_URL || true)
 if [ $# -ge 1 ]; then
   PSQL="$*"
-elif [ -n "${DATABASE_URL:-}" ]; then
-  PSQL="psql $DATABASE_URL"
+elif [ -n "$DB_URL" ]; then
+  PSQL="psql $DB_URL"
 else
   echo "Set DATABASE_URL or pass the psql command, e.g. 'docker exec pg psql -U postgres'" >&2
   exit 2
