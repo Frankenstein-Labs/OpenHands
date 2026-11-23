@@ -29,15 +29,16 @@ for _ in $(seq 1 60); do
 done
 docker exec "$NAME" pg_isready -U postgres -q
 
-psql_run() { docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
+psql_run() { docker exec "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q "$@" < /dev/null; }
+psql_file() { local file="$1"; shift; docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q "$@" -f - < "$file"; }
 
-echo '1/4 bootstrapping Supabase-like auth and storage schemas'
-psql_run -f - < "$ROOT/scripts/supabase-local-bootstrap.sql"
+echo '1/5 bootstrapping Supabase-like auth and storage schemas'
+psql_file "$ROOT/scripts/supabase-local-bootstrap.sql"
 
-echo '2/4 applying migrations'
+echo '2/5 applying migrations'
 for file in "$ROOT"/supabase/migrations/*.sql; do
   echo "   $(basename "$file")"
-  psql_run -f - < "$file"
+  psql_file "$file"
 done
 
 # Supabase grants table privileges to the API roles by default; reproduce that so
@@ -49,8 +50,13 @@ psql_run -c "
   grant usage, select on all sequences in schema public to authenticated, service_role;
 "
 
-echo '3/4 running isolation assertions'
-psql_run -tA -f - < "$ROOT/scripts/supabase-local-rls.sql"
+echo '3/5 running isolation assertions'
+docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -tA -f - \
+  < "$ROOT/scripts/supabase-local-rls.sql"
 
-echo '4/4 done'
+echo '4/5 running run-admission and settlement assertions'
+docker exec -i "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -tA -f - \
+  < "$ROOT/scripts/supabase-local-run-controls.sql"
+
+echo '5/5 done'
 echo 'PASS: migrations apply and RLS isolates two tenants on a fresh database'

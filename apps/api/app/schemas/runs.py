@@ -8,8 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class RunCreate(BaseModel):
     agent_id: UUID | None = None
     model_id: str | None = Field(default=None, max_length=128)
+    conversation_id: str | None = Field(default=None, max_length=128)
     prompt: str = Field(min_length=1, max_length=100000)
-    budget_credits: float = Field(default=0, ge=0)
+    # Every run reserves credits up front; a zero budget would bypass quota checks.
+    budget_credits: float = Field(default=1.0, gt=0)
     metadata: dict[str, Any] = {}
 
 
