@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.api.deps import OrganizationContext, get_org_context
 from app.api.errors import translate_supabase_error
@@ -13,7 +13,6 @@ from app.database.supabase import (
 from app.repositories.agents import AgentsRepository
 from app.repositories.models import ModelsRepository
 from app.repositories.runs import RunsRepository
-from app.repositories.usage import UsageRepository
 from app.schemas.runs import RunCreate, RunEventResponse, RunResponse
 from app.services.models import ModelsService
 from app.services.runs import (
@@ -30,7 +29,6 @@ router = APIRouter(prefix='/runs', tags=['runs'])
 def get_runs_service(client: SupabaseClient = Depends(get_supabase_client)) -> RunsService:
     return RunsService(
         RunsRepository(client),
-        UsageRepository(client),
         AgentsRepository(client),
         ModelsService(ModelsRepository(client)),
     )
@@ -57,9 +55,16 @@ async def create_run(
     payload: RunCreate,
     context: OrganizationContext = Depends(get_org_context),
     service: RunsService = Depends(get_runs_service),
+    idempotency_key: str | None = Header(default=None, alias='Idempotency-Key', max_length=128),
 ):
     try:
-        return await service.create(context.access_token, context.organization_id, context.user_id, payload)
+        return await service.create(
+            context.access_token,
+            context.organization_id,
+            context.user_id,
+            payload,
+            idempotency_key=idempotency_key,
+        )
     except (RunNotFound, RunValidationError, QuotaExceeded, InvalidRunState,
             SupabaseNotConfigured, SupabaseRequestError) as exc:
         _raise(exc)

@@ -144,6 +144,13 @@ class Supabase:
         )
         return payload or []
 
+    def rpc(self, token: str | None, function: str, body: dict, *, admin: bool = False):
+        headers = self.admin_headers() if admin else self.user_headers(token or '')
+        payload, _ = request(
+            'POST', f'{self.base}/rest/v1/rpc/{function}', headers=headers, body=body
+        )
+        return payload
+
     def delete_admin(self, table: str, query: str) -> None:
         request('DELETE', f'{self.base}/rest/v1/{table}?{query}', headers=self.admin_headers())
 
@@ -157,20 +164,20 @@ def main() -> None:
     email_a = f'cortex-verify-a-{suffix}@example.com'
     email_b = f'cortex-verify-b-{suffix}@example.com'
 
-    print('1/7 creating two users')
+    print('1/8 creating two users')
     user_a_id = client.create_user(email_a, password)
     user_b_id = client.create_user(email_b, password)
     token_a = client.sign_in(email_a, password)
     token_b = client.sign_in(email_b, password)
 
-    print('2/7 creating two organizations')
+    print('2/8 creating two organizations')
     org_a = client.create_org(token_a, f'verify-a-{suffix}', 'Verify A')
     org_b = client.create_org(token_b, f'verify-b-{suffix}', 'Verify B')
     org_a_id, org_b_id = org_a['id'], org_b['id']
     if org_a_id == org_b_id:
         fail('organizations were not created separately')
 
-    print('3/7 seeding tenant A data')
+    print('3/8 seeding tenant A data')
     agent = client.insert(
         token_a,
         'agents',
@@ -199,14 +206,14 @@ def main() -> None:
         },
     )
 
-    print('4/7 checking cross-tenant reads return nothing')
+    print('4/8 checking cross-tenant reads return nothing')
     for table in TENANT_TABLES:
         rows = client.select(token_b, table, f'organization_id=eq.{org_a_id}&select=id')
         if rows:
             fail(f'user B can read {len(rows)} row(s) from {table}')
         print(f'   ok: {table} is invisible to user B')
 
-    print('5/7 checking cross-tenant writes are denied')
+    print('5/8 checking cross-tenant writes are denied')
     patched, _ = request(
         'PATCH',
         f'{client.base}/rest/v1/agents?id=eq.{agent["id"]}',
@@ -238,7 +245,7 @@ def main() -> None:
     except CheckFailure:
         print('   ok: role escalation is rejected')
 
-    print('6/7 checking tenant A still sees its own data')
+    print('6/8 checking tenant A still sees its own data')
     own_agents = client.select(token_a, 'agents', f'organization_id=eq.{org_a_id}&select=id')
     if not own_agents:
         fail('organization A lost access to its own agent')
@@ -249,7 +256,125 @@ def main() -> None:
         fail('organization A lost access to its own document chunks')
     print('   ok: owner access is intact')
 
-    print('7/7 cleaning up test tenants')
+    print('7/8 checking run admission, reservation and settlement')
+    budget = 25.0
+    run = client.rpc(
+        token_a,
+        'enqueue_agent_run',
+        {
+            'target_organization_id': org_a_id,
+            'target_agent_id': None,
+            'target_model_id': None,
+            'target_conversation_id': None,
+            'target_prompt': 'verify run admission',
+            'target_budget_credits': budget,
+            'target_idempotency_key': f'verify-{suffix}',
+            'target_metadata': {},
+        },
+    )
+    if run['status'] != 'queued':
+        fail(f"new run is not queued: {run['status']}")
+
+    replay = client.rpc(
+        token_a,
+        'enqueue_agent_run',
+        {
+            'target_organization_id': org_a_id,
+            'target_agent_id': None,
+            'target_model_id': None,
+            'target_conversation_id': None,
+            'target_prompt': 'verify run admission',
+            'target_budget_credits': budget,
+            'target_idempotency_key': f'verify-{suffix}',
+            'target_metadata': {},
+        },
+    )
+    if replay['id'] != run['id']:
+        fail('replaying the idempotency key created a second run')
+    print('   ok: idempotent replay returns the same run')
+
+    entitlement = client.select(
+        token_a,
+        'organization_entitlements',
+        f'organization_id=eq.{org_a_id}&select=credits_reserved,credits_used',
+    )[0]
+    if float(entitlement['credits_reserved']) != budget:
+        fail(f"reservation is {entitlement['credits_reserved']}, expected {budget}")
+    print('   ok: budget is reserved')
+
+    try:
+        client.rpc(
+            token_a,
+            'enqueue_agent_run',
+            {
+                'target_organization_id': org_a_id,
+                'target_agent_id': None,
+                'target_model_id': None,
+                'target_conversation_id': None,
+                'target_prompt': 'second run',
+                'target_budget_credits': 1,
+                'target_idempotency_key': f'verify-second-{suffix}',
+                'target_metadata': {},
+            },
+        )
+        fail('a second concurrent run was accepted on the free plan')
+    except CheckFailure:
+        print('   ok: concurrency limit is enforced by the database')
+
+    try:
+        client.rpc(
+            token_b,
+            'enqueue_agent_run',
+            {
+                'target_organization_id': org_a_id,
+                'target_agent_id': None,
+                'target_model_id': None,
+                'target_conversation_id': None,
+                'target_prompt': 'intruder',
+                'target_budget_credits': 1,
+                'target_idempotency_key': f'verify-intruder-{suffix}',
+                'target_metadata': {},
+            },
+        )
+        fail('user B enqueued a run in organization A')
+    except CheckFailure:
+        print('   ok: cross-tenant run creation is rejected')
+
+    settled = client.rpc(
+        None,
+        'settle_agent_run',
+        {
+            'target_run_id': run['id'],
+            'target_status': 'completed',
+            'target_credits_used': 5,
+            'target_error': None,
+        },
+        admin=True,
+    )
+    if settled['status'] != 'completed':
+        fail(f"settlement left the run in {settled['status']}")
+    entitlement = client.select(
+        token_a,
+        'organization_entitlements',
+        f'organization_id=eq.{org_a_id}&select=credits_reserved,credits_used',
+    )[0]
+    if float(entitlement['credits_reserved']) != 0 or float(entitlement['credits_used']) != 5:
+        fail(
+            'settlement did not release the reservation: '
+            f"reserved={entitlement['credits_reserved']} used={entitlement['credits_used']}"
+        )
+    print('   ok: settlement releases the reservation and books usage')
+
+    print('8/8 checking tenant A can still read the settled run')
+    runs = client.select(token_a, 'agent_runs', f'organization_id=eq.{org_a_id}&select=id,status')
+    if not any(row['id'] == run['id'] for row in runs):
+        fail('owner lost access to its own run')
+    other_runs = client.select(token_b, 'agent_runs', f'organization_id=eq.{org_a_id}&select=id')
+    if other_runs:
+        fail('user B can read runs of organization A')
+    print('   ok: run visibility stays tenant-scoped')
+
+    print('9/9 cleaning up test tenants')
     client.delete_admin('organizations', f'id=in.({org_a_id},{org_b_id})')
     for user_id in (user_a_id, user_b_id):
         request(
@@ -258,7 +383,7 @@ def main() -> None:
             headers=client.admin_headers(),
             expected=(200, 204),
         )
-    print('PASS: migrations, RLS and tenant isolation verified on the development project')
+    print('PASS: migrations, RLS, tenant isolation and run accounting verified')
 
 
 if __name__ == '__main__':
