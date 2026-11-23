@@ -2,7 +2,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.database.supabase import SupabaseClient, SupabaseNotConfigured, SupabaseRequestError, get_supabase_client
+from app.database.supabase import (
+    SupabaseClient,
+    SupabaseNotConfigured,
+    SupabaseRequestError,
+    get_supabase_client,
+)
+from app.repositories.memberships import MembershipsRepository
 from app.schemas.memberships import (
     AddMemberRequest,
     MembershipResponse,
@@ -10,7 +16,6 @@ from app.schemas.memberships import (
     UpdateMemberRoleRequest,
 )
 from app.security.jwt import CurrentUser, get_access_token, get_current_user
-from app.repositories.memberships import MembershipsRepository
 from app.services.memberships import MembershipAccessDenied, MembershipNotFound, MembershipsService
 
 router = APIRouter(prefix='/organizations/{organization_id}/members', tags=['memberships'])
