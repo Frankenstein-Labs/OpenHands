@@ -237,6 +237,32 @@ describe("buildStartConversationRequest", () => {
     expect(page.items.map((item) => item.id)).toEqual(["main-1"]);
   });
 
+  it("gives every new conversation the Cortex identity", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+      agentProfileId: "profile-xyz",
+      agentProfileKind: "openhands",
+    });
+
+    const suffix =
+      payload.agent_launch_additions?.system_message_suffix_append ?? "";
+    expect(suffix).toContain("Your name is Cortex");
+    expect(suffix).toContain("Frankenstein-Labs");
+  });
+
+  it("gives the local planner the same Cortex identity", () => {
+    const payload = buildStartPlanningConversationRequest({
+      encryptedAgentSettings: { llm: { model: "openhands/minimax-m2.7" } },
+      workingDir: "/workspace/project/agent-canvas",
+      parentConversationId: "parent-1",
+    });
+
+    const context = payload.agent.agent_context as {
+      system_message_suffix?: string;
+    };
+    expect(context.system_message_suffix).toContain("Your name is Cortex");
+  });
+
   it("loads a catalog skill the opening slash command invokes", () => {
     // An automation card fills the chat input with the skill's own command
     // (`findAutomationCommand`), and most of the catalog's slash commands
@@ -261,7 +287,7 @@ describe("buildStartConversationRequest", () => {
       query: "tell me what /standup-digest:setup would do",
     });
 
-    expect(payload.agent_launch_additions).toBeUndefined();
+    expect(payload.agent_launch_additions?.skills).toBeUndefined();
   });
 
   it("sends the enabled catalog skills to an ACP agent, which has no profile skill selection", () => {
@@ -287,7 +313,7 @@ describe("buildStartConversationRequest", () => {
       agentProfileKind: "acp",
     });
 
-    expect(payload.agent_launch_additions).toBeUndefined();
+    expect(payload.agent_launch_additions?.skills).toBeUndefined();
   });
 
   it("does not send the enabled catalog to an OpenHands profile, which selects its own", () => {
@@ -300,7 +326,7 @@ describe("buildStartConversationRequest", () => {
       agentProfileKind: "openhands",
     });
 
-    expect(payload.agent_launch_additions).toBeUndefined();
+    expect(payload.agent_launch_additions?.skills).toBeUndefined();
   });
 });
 
@@ -627,7 +653,7 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
 
     expect(payload.agent_profile_id).toBe("profile-xyz");
     expect(payload.agent_settings).toBeUndefined();
-    expect(payload.agent_launch_additions).toBeUndefined();
+    expect(payload.agent_launch_additions?.skills).toBeUndefined();
     expect(payload.client_tools.map((tool) => tool.name)).toEqual([
       CANVAS_UI_CLIENT_TOOL_NAME,
       LAUNCH_CHILD_CONVERSATION_TOOL_NAME,
@@ -643,7 +669,7 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
       llmProfileOverride: "fast",
     });
 
-    expect(payload.agent_launch_additions).toEqual({
+    expect(payload.agent_launch_additions).toMatchObject({
       llm_profile_ref: "fast",
     });
   });

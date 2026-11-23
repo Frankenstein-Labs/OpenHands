@@ -1326,7 +1326,10 @@ describe("profile launch additions", () => {
     const appended = additionsOf(payload)?.system_message_suffix_append;
     expect(payload.agent_profile_id).toBe("profile-1");
     expect(payload).not.toHaveProperty("agent_settings");
-    expect(appended).toMatch(/^<RUNTIME_SERVICES>/);
+    expect(appended).toContain("<CORTEX_IDENTITY>");
+    expect(appended!.indexOf("<CORTEX_IDENTITY>")).toBeLessThan(
+      appended!.indexOf("<RUNTIME_SERVICES>"),
+    );
     expect(appended).toContain("http://localhost:18001");
     expect(appended).not.toContain("MARKER-GLOBAL-RULES");
   });
@@ -1464,14 +1467,19 @@ describe("profile launch additions", () => {
     expect(additionsOf(payload)?.skills).toBeUndefined();
   });
 
-  it("omits additions when there is nothing to add", () => {
+  it("sends only the Cortex identity when there is nothing else to add", () => {
     const payload = buildStartConversationRequest({
       ...PROFILE,
       settings: DEFAULT_SETTINGS,
       query: "hello",
     });
 
-    expect(additionsOf(payload)).toBeUndefined();
+    const additions = additionsOf(payload);
+    expect(additions?.skills).toBeUndefined();
+    expect(additions?.llm_profile_ref).toBeUndefined();
+    expect(additions?.system_message_suffix_append).toContain(
+      "<CORTEX_IDENTITY>",
+    );
   });
 });
 

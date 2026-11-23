@@ -1,4 +1,5 @@
 import i18n, { OPENHANDS_I18N_NAMESPACE } from "#/i18n";
+import { CORTEX_IDENTITY_SYSTEM_SUFFIX } from "#/constants/cortex-identity";
 import { I18nKey } from "#/i18n/declaration";
 import { hasPluginParameters } from "#/utils/plugin-parameters";
 import {
@@ -1155,6 +1156,11 @@ export function buildStartConversationRequest(
   options: StartConversationOptions,
 ): ProfileStartConversationPayload {
   const launchSuffix = [
+    // Cortex identity first: it defines the agent's name, creator and honesty
+    // rules, so the deployment-specific suffixes below can assume them. ACP
+    // profiles run other vendors' CLIs (Claude Code, Codex, ...), which keep
+    // their own identity.
+    options.agentProfileKind === "acp" ? null : CORTEX_IDENTITY_SYSTEM_SUFFIX,
     buildRuntimeServicesSystemSuffix(options.runtimeServicesInfo),
     // A home-page model pick made before the first message is an explicit
     // choice the router shouldn't override on turn 1 — suppress the suffix for
@@ -1347,10 +1353,11 @@ export function buildStartPlanningConversationRequest(options: {
     options.skillEnablement,
   );
   const existingSuffix = agentContext.system_message_suffix;
+  const planningSuffix = `${CORTEX_IDENTITY_SYSTEM_SUFFIX}\n\n${PLANNING_AGENT_INSTRUCTION}`;
   agentContext.system_message_suffix =
     typeof existingSuffix === "string"
-      ? `${PLANNING_AGENT_INSTRUCTION}\n\n${existingSuffix}`
-      : PLANNING_AGENT_INSTRUCTION;
+      ? `${planningSuffix}\n\n${existingSuffix}`
+      : planningSuffix;
 
   // Idle planner: "Create a Plan" only switches to plan mode and provisions
   // this conversation; the user sends the first message themselves, so nothing
