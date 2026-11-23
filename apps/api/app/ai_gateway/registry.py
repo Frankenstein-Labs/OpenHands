@@ -22,6 +22,17 @@ _FACTORIES: dict[str, type[Provider]] = {
 }
 
 
+# Endpoints for the hosted providers, used when a provider row has no explicit
+# base_url. Keeping them here means "enable Hugging Face" is one row plus a
+# credential, not a URL nobody remembers.
+_DEFAULT_BASE_URLS: dict[str, str] = {
+    'huggingface': 'https://router.huggingface.co/v1',
+    'openrouter': 'https://openrouter.ai/api/v1',
+    'together': 'https://api.together.xyz/v1',
+    'vercel_ai_gateway': 'https://ai-gateway.vercel.sh/v1',
+}
+
+
 class ProviderRegistry:
     def __init__(
         self,
@@ -41,9 +52,14 @@ class ProviderRegistry:
         if factory is None:
             return None
         provider_id = provider_row['id']
+        base_url = (
+            self.base_urls.get(provider_id)
+            or provider_row.get('base_url')
+            or _DEFAULT_BASE_URLS.get(provider_row['kind'])
+        )
         return factory(
             api_key=self.credentials.get(provider_id),
-            base_url=self.base_urls.get(provider_id) or provider_row.get('base_url'),
+            base_url=base_url,
             timeout=self.timeout,
             client=self.client,
         )
