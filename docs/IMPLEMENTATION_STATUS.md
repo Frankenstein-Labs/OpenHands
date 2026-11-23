@@ -126,8 +126,7 @@ Verification:
 ## Run execution (branch `feat/cortex-run-execution`)
 
 - Worker queue: Redis Streams consumer group with idempotent jobs, backoff,
-  dead-letter handling and crash reclaim (`scripts`-free, tested against a real
-  Redis container).
+  dead-letter handling and crash reclaim (tested against a real Redis container).
 - Run admission and settlement: `enqueue_agent_run` and `settle_agent_run`
   decide under a row lock, so concurrent requests cannot overspend or exceed the
   concurrency limit. Migration
