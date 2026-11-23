@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from app.database.supabase import SupabaseRequestError
 from app.repositories.agents import AgentsRepository
 from app.repositories.runs import RunsRepository
-from app.repositories.usage import UsageRepository
 from app.schemas.runs import RunCreate
 from app.services.models import ModelsService
 
 CANCELLABLE_STATUSES = {'queued', 'provisioning', 'running', 'waiting'}
+QUOTA_MESSAGES = ('insufficient credits', 'concurrent run limit', 'entitlement')
 
 
 class RunNotFound(Exception):
@@ -31,48 +31,62 @@ class QuotaExceeded(Exception):
         super().__init__(detail)
 
 
+def _error_message(exc: SupabaseRequestError) -> str:
+    detail = exc.detail
+    if isinstance(detail, dict):
+        return str(detail.get('message') or detail.get('details') or detail)
+    if isinstance(detail, list) and detail and isinstance(detail[0], dict):
+        return str(detail[0].get('message') or detail[0])
+    return str(detail)
+
+
 class RunsService:
     def __init__(
         self,
         runs: RunsRepository,
-        usage: UsageRepository,
         agents: AgentsRepository,
         models: ModelsService,
     ) -> None:
         self.runs = runs
-        self.usage = usage
         self.agents = agents
         self.models = models
 
-    async def _enforce_quota(self, access_token: str, organization_id: UUID, budget: float) -> None:
-        entitlement = await self.usage.get_entitlement(access_token, organization_id)
-        if entitlement is None:
-            raise QuotaExceeded('organization has no active entitlement')
-        plan = await self.usage.get_plan(access_token, entitlement['plan_id'])
-        limits = (plan or {}).get('limits') or {}
-        max_concurrent = int(limits.get('max_concurrent_runs', 1))
-        active = await self.runs.list_active(access_token, organization_id)
-        if len(active) >= max_concurrent:
-            raise QuotaExceeded('concurrent run limit reached')
-        credits_limit = float(entitlement['credits_limit'])
-        credits_used = float(entitlement['credits_used'])
-        reserved = sum(float(row.get('credits_reserved') or 0) for row in active)
-        if budget > credits_limit - credits_used - reserved:
-            raise QuotaExceeded('insufficient credits')
-
-    async def create(self, access_token: str, organization_id: UUID, user_id: str, payload: RunCreate) -> dict[str, Any]:
+    async def create(
+        self,
+        access_token: str,
+        organization_id: UUID,
+        user_id: str,
+        payload: RunCreate,
+        *,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         if payload.agent_id is not None:
             agent = await self.agents.get(access_token, organization_id, payload.agent_id)
             if agent is None:
                 raise RunValidationError('agent not found in organization')
-        if payload.model_id is not None and not await self.models.is_available(access_token, payload.model_id):
+        if payload.model_id is not None and not await self.models.is_available(
+            access_token, payload.model_id
+        ):
             raise RunValidationError('model is not available')
-        await self._enforce_quota(access_token, organization_id, payload.budget_credits)
-        data = payload.model_dump()
-        data['agent_id'] = str(payload.agent_id) if payload.agent_id else None
-        data['status'] = 'queued'
-        data['credits_reserved'] = payload.budget_credits
-        return await self.runs.create(access_token, organization_id, user_id, data)
+        try:
+            return await self.runs.enqueue(
+                access_token,
+                organization_id=organization_id,
+                agent_id=payload.agent_id,
+                model_id=payload.model_id,
+                conversation_id=payload.conversation_id,
+                prompt=payload.prompt,
+                budget_credits=payload.budget_credits,
+                idempotency_key=idempotency_key,
+                metadata=payload.metadata,
+            )
+        except SupabaseRequestError as exc:
+            message = _error_message(exc)
+            if any(fragment in message for fragment in QUOTA_MESSAGES):
+                raise QuotaExceeded(message) from exc
+            if 'not a member' in message:
+                raise RunNotFound from exc
+            raise
 
     async def get(self, access_token: str, organization_id: UUID, run_id: UUID) -> dict[str, Any]:
         run = await self.runs.get(access_token, organization_id, run_id)
@@ -84,11 +98,12 @@ class RunsService:
         run = await self.get(access_token, organization_id, run_id)
         if run['status'] not in CANCELLABLE_STATUSES:
             raise InvalidRunState(f"run in status {run['status']} cannot be cancelled")
-        finished_at = datetime.now(timezone.utc).isoformat()
-        updated = await self.runs.update_status(
-            access_token, organization_id, run_id,
-            {'status': 'cancelled', 'finished_at': finished_at, 'credits_reserved': 0},
-        )
+        try:
+            updated = await self.runs.settle(run_id, 'cancelled', 0)
+        except SupabaseRequestError as exc:
+            if 'run not found' in _error_message(exc):
+                raise RunNotFound from exc
+            raise
         if updated is None:
             raise RunNotFound
         return updated
