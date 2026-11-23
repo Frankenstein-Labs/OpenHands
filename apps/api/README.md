@@ -19,6 +19,9 @@ Endpoints sans compte externe :
 - `GET /api/v1/ready` : expose l’état de configuration des dépendances et renvoie `503` tant que les dépendances requises ne sont pas configurées.
 - `GET /api/v1/organizations` et `POST /api/v1/organizations` : liste et création via RLS/RPC Supabase avec le bearer token utilisateur vérifié.
 - `GET/PATCH /api/v1/organizations/{organization_id}` : consultation et modification filtrées côté serveur et côté RLS.
+- `GET/POST /api/v1/organizations/{organization_id}/members` : lecture et ajout contrôlés par rôle.
+- `PATCH/DELETE /api/v1/organizations/{organization_id}/members/{user_id}` : modification ou retrait contrôlés par rôle.
+- `POST /api/v1/organizations/{organization_id}/members/transfer-ownership` : transfert réservé au propriétaire.
 - `GET /docs` : documentation OpenAPI FastAPI.
 
 La validation JWT Supabase est serveur uniquement. Aucun JWT n’est accepté parce qu’il est simplement décodable : signature, `exp`, `sub`, `iss`, `aud` et algorithme autorisé sont vérifiés.
