@@ -122,3 +122,35 @@ Verification:
 - Known gap: the `verify-openhands` feature map does not list `/cortex`, so the
   skill's `map coverage` test fails. Per `AGENTS.md`, verification-skill maps are
   not edited by implementors; the follow-up belongs in a separate PR.
+
+## Run execution (branch `feat/cortex-run-execution`)
+
+- Worker queue: Redis Streams consumer group with idempotent jobs, backoff,
+  dead-letter handling and crash reclaim (`scripts`-free, tested against a real
+  Redis container).
+- Run admission and settlement: `enqueue_agent_run` and `settle_agent_run`
+  decide under a row lock, so concurrent requests cannot overspend or exceed the
+  concurrency limit. Migration
+  `20261123060000_run_idempotency_before_limit.sql` makes a concurrent retry
+  replay its own run instead of failing with `P0002`.
+- Runner: `AgentServerRunner` starts, polls and cancels real Agent Server
+  conversations. Three contract bugs were fixed after testing against a live
+  server (missing `agent_settings`/`workspace`, wrong cancel route, no LLM
+  credential forwarding). See `docs/AGENT_RUNNER.md`.
+- Metering: `app/worker/metering.py` prices `stats.usage_to_metrics` with the
+  catalogue rates and settles exactly once, capped by the reserved budget.
+
+Evidence for this branch:
+
+- `cd apps/api && pytest -q` → 100 passed, 1 skipped (the skip is the live Agent
+  Server test, which runs when `CORTEX_AGENT_SERVER_URL` is set).
+- `bash scripts/verify-supabase-local.sh` → 5/5 steps, "migrations apply and RLS
+  isolates two tenants on a fresh database".
+- `bash scripts/verify-run-admission-race.sh` → PASS (one admitted run, one row
+  and one reservation for a replayed key).
+- Live Agent Server run: conversation finished, 8395 prompt + 36 completion
+  tokens, priced at 4.2515 credits, settled once, redelivery skipped.
+
+Still open: per-tenant containers and enforced CPU/RAM/disk/network limits,
+per-organization model credentials from the AI Gateway, and remote Supabase
+verification (blocked until a development project is authorized).
