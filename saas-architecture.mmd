@@ -1,0 +1,35 @@
+flowchart LR
+  U[Utilisateur / Admin] --> WAF[WAF + TLS + Rate limit]
+  WAF --> FE[OpenHands Agent Canvas\nReact / TypeScript]
+  FE --> API[FastAPI SaaS API\nAuth · RBAC · Tenant · Billing]
+  FE <-->|SSE / WebSocket| API
+
+  API --> PG[(PostgreSQL\nUsers · Orgs · Plans · Usage\nConversations · Audit)]
+  API --> REDIS[(Redis\nRate limits · Queue · Locks · Cache)]
+  API --> S3[(S3 Object Storage\nFiles · Exports · RAG sources)]
+  API --> STRIPE[Stripe Billing\nCheckout · Portal · Webhooks]
+  STRIPE -->|signed webhook| API
+
+  API --> GW[AI Gateway\nRouting · Budgets · Token accounting]
+  GW --> P1[Provider LLM 1]
+  GW --> P2[Provider LLM 2]
+  GW --> P3[Self-hosted models]
+
+  API --> JOBS[Workers\nRuns · Embeddings · RAG · Webhooks]
+  JOBS --> REDIS
+  JOBS --> PG
+  JOBS --> S3
+  JOBS --> GW
+  JOBS --> RUNNER[Secure Agent Runner\nOpenHands / ACP / MCP]
+  RUNNER --> TOOLS[MCP tools / Git / Sandboxed workspace]
+
+  API --> OBS[Observability\nLogs · Metrics · Traces · Alerts]
+  JOBS --> OBS
+  GW --> OBS
+
+  subgraph TENANT[Security boundary per organization]
+    API
+    PG
+    S3
+    RUNNER
+  end
