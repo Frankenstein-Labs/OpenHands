@@ -148,10 +148,37 @@ class Supabase:
         request('DELETE', f'{self.base}/rest/v1/{table}?{query}', headers=self.admin_headers())
 
 
+def _cleanup(client: Supabase, users: list[str], orgs: list[str]) -> None:
+    if orgs:
+        try:
+            client.delete_admin('organizations', f'id=in.({",".join(orgs)})')
+        except CheckFailure:
+            print('   warning: organization cleanup failed')
+    for user_id in users:
+        try:
+            request(
+                'DELETE',
+                f'{client.base}/auth/v1/admin/users/{user_id}',
+                headers=client.admin_headers(),
+                expected=(200, 204),
+            )
+        except CheckFailure:
+            print(f'   warning: could not delete test user {user_id}')
+
+
 def main() -> None:
     env = dict(os.environ)
     guard_environment(env)
     client = Supabase(env)
+    created_users: list[str] = []
+    created_orgs: list[str] = []
+    try:
+        run_checks(client, created_users, created_orgs)
+    finally:
+        _cleanup(client, created_users, created_orgs)
+
+
+def run_checks(client: Supabase, created_users: list[str], created_orgs: list[str]) -> None:
     suffix = secrets.token_hex(4)
     password = f'Cortex-{secrets.token_urlsafe(12)}'
     email_a = f'cortex-verify-a-{suffix}@example.com'
@@ -159,7 +186,9 @@ def main() -> None:
 
     print('1/7 creating two users')
     user_a_id = client.create_user(email_a, password)
+    created_users.append(user_a_id)
     user_b_id = client.create_user(email_b, password)
+    created_users.append(user_b_id)
     token_a = client.sign_in(email_a, password)
     token_b = client.sign_in(email_b, password)
 
@@ -167,6 +196,7 @@ def main() -> None:
     org_a = client.create_org(token_a, f'verify-a-{suffix}', 'Verify A')
     org_b = client.create_org(token_b, f'verify-b-{suffix}', 'Verify B')
     org_a_id, org_b_id = org_a['id'], org_b['id']
+    created_orgs.extend([org_a_id, org_b_id])
     if org_a_id == org_b_id:
         fail('organizations were not created separately')
 
@@ -249,15 +279,6 @@ def main() -> None:
         fail('organization A lost access to its own document chunks')
     print('   ok: owner access is intact')
 
-    print('7/7 cleaning up test tenants')
-    client.delete_admin('organizations', f'id=in.({org_a_id},{org_b_id})')
-    for user_id in (user_a_id, user_b_id):
-        request(
-            'DELETE',
-            f'{client.base}/auth/v1/admin/users/{user_id}',
-            headers=client.admin_headers(),
-            expected=(200, 204),
-        )
     print('PASS: migrations, RLS and tenant isolation verified on the development project')
 
 

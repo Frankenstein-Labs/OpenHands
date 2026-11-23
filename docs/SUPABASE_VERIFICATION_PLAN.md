@@ -1,9 +1,10 @@
 # Supabase verification plan (development project only)
 
 This plan proves that the SQL migrations, the RLS policies, and the multi-tenant
-isolation actually work. Nothing here has been executed yet: no Supabase project
-credentials are available in this environment. Do not treat any item as verified
-until its command has run and its output is recorded.
+isolation actually work. A development project is now connected and its state has
+been probed (section 7); migrations are not applied yet because no DDL credential
+was provided. Do not treat any item as verified until its command has run and its
+output is recorded.
 
 Never run this plan against a production project.
 
@@ -109,3 +110,70 @@ emails of real people). Only then may the corresponding checkbox in
 - Backup/restore drills, which need a paid plan or a local dump/restore cycle.
 
 Those remain separate, later phases.
+
+
+## 7. Session evidence (2026-11-23)
+
+Project `hmqbdhkufqvbjafyubxd` (`https://hmqbdhkufqvbjafyubxd.supabase.co`).
+
+New-style API keys are used, not legacy JWTs:
+
+| Dashboard label | Environment variable |
+|---|---|
+| Publishable key (`sb_publishable_...`) | `SUPABASE_ANON_KEY` |
+| Secret key (`sb_secret_...`) | `SUPABASE_SERVICE_ROLE_KEY` (server only) |
+
+Observed:
+
+| Probe | Result |
+|---|---|
+| `GET /auth/v1/health` | 200, GoTrue v2.198.0 |
+| `GET /rest/v1/` with publishable key | 401 "Secret API key required" (expected) |
+| `GET /rest/v1/` with secret key | 200, **0 tables** |
+| `GET /rest/v1/organizations` | `PGRST205`, table does not exist |
+| `GET /auth/v1/settings` | email signup enabled, `mailer_autoconfirm=false`, no `site_url`, no redirect allow list |
+| Isolation harness | creates two users and signs them in, then stops at step 2 with `PGRST202` (`create_organization_with_owner` missing) and removes both users |
+
+So: authentication works, the schema is empty, and nothing is at risk. Applying
+the migrations is the next step.
+
+## 8. Applying the migrations
+
+Two supported paths.
+
+### Management API (no database password)
+
+Needs a Supabase personal access token (`sbp_...`) with access to the project:
+
+```bash
+export SUPABASE_ACCESS_TOKEN=sbp_...
+export SUPABASE_PROJECT_REF=hmqbdhkufqvbjafyubxd
+python scripts/apply-supabase-migrations.py --dry-run --confirm-project "$SUPABASE_PROJECT_REF"
+python scripts/apply-supabase-migrations.py --confirm-project "$SUPABASE_PROJECT_REF"
+```
+
+The script applies `supabase/migrations/*.sql` in filename order inside one
+transaction per file and records each version in `public.cortex_migrations`, so a
+rerun only applies what is missing.
+
+### Direct connection
+
+```bash
+supabase link --project-ref hmqbdhkufqvbjafyubxd --password '<db password>'
+supabase db push
+```
+
+## 9. Auth configuration still required
+
+- Set the site URL and redirect allow list (`http://localhost:5173`,
+  `https://<vercel-domain>/cortex`) or confirmation links will not come back to
+  the app.
+- Decide whether email confirmation stays required. The harness creates users
+  with `email_confirm: true`, so it does not depend on the mailer.
+- Google and GitHub OAuth remain disabled until client ids are configured.
+
+## 10. Harness cleanup guarantee
+
+`scripts/verify-supabase-isolation.py` now deletes the users and organizations it
+creates in a `finally` block, including when a step fails. Verified: a failing run
+left zero users behind.

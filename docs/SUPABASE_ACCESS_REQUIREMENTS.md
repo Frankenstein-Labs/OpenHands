@@ -20,17 +20,19 @@ A **development** Supabase project (not production) with:
 | Item | Purpose |
 |---|---|
 | Project URL | `SUPABASE_URL` |
-| Anon/publishable key | Frontend and user-scoped API calls |
-| Service-role key | Server-owned writes (usage, audit, billing, webhooks) |
-| Database connection / CLI login | Apply migrations and run RLS checks |
+| Publishable key (`sb_publishable_...` or legacy anon JWT) | Frontend and user-scoped API calls |
+| Secret key (`sb_secret_...` or legacy service-role JWT) | Server-owned writes (usage, audit, billing, webhooks) |
+| Personal access token (`sbp_...`) or database URL | Apply migrations; the Management API path needs only the token |
+| Auth redirect settings | Confirmation links must return to the app |
 
 Provide access through environment variables or `supabase login` — never by
 sharing an account password in chat or committing a key.
 
 ## Operations to perform
 
-1. `supabase link --project-ref <dev-ref>`
-2. `supabase db push` (applies all migrations in order).
+1. Apply migrations: `python scripts/apply-supabase-migrations.py --confirm-project <dev-ref>`
+   with `SUPABASE_ACCESS_TOKEN`, or `supabase link` + `supabase db push` with the
+   database password.
 3. Create two test users and two organizations.
 4. Run the RLS verification script (below).
 5. Create the three private buckets if the migration did not (idempotent check).
