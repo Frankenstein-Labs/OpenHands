@@ -1,0 +1,19 @@
+Cortex
+======
+
+Cortex is the public name of the AI engineering agent and platform in this
+repository. It is developed and distributed by Frankenstein-Labs.
+
+This product is built on Agent Canvas and the OpenHands engine:
+
+    https://github.com/OpenHands/OpenHands
+    Copyright © 2025 OpenHands contributors
+    Licensed under the MIT License (see LICENSE)
+
+The OpenHands name, logo and hosted services remain the property of their
+respective owners. They appear in this repository only to identify the
+underlying engine and the external OpenHands Cloud service and model provider,
+and in licence notices. They are not Cortex branding.
+
+Modifications made by Frankenstein-Labs are released under the same MIT
+License as the upstream project.

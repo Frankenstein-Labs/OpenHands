@@ -29,6 +29,14 @@
 </p>
 <hr>
 
+> **Cortex** is the product built in this repository. It is the AI engineering
+> agent by [Frankenstein-Labs](https://github.com/Frankenstein-Labs), built on
+> the OpenHands engine and this Agent Canvas frontend. See
+> [docs/CORTEX_IDENTITY.md](./docs/CORTEX_IDENTITY.md) for what the agent says
+> about itself and which surfaces keep the upstream name. Attribution is in
+> [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+
+
 OpenHands Agent Canvas turns your coding agents into a self-hosted, always-on engineering team. It's a developer control center for starting conversations and automating everyday tasks — like generating reports that publish to Slack or automatically decomposing GitHub issues into tasks.
 
 It runs locally on your machine by default, but can connect to multiple “agent backends”, e.g. running agents in Docker containers, on VMs, or within your company infrastructure. You can optionally choose to run agents on OpenHands Cloud or OpenHands Enterprise infrastructure.

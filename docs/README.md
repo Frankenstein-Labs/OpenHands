@@ -2,6 +2,7 @@
 
 This directory contains the project documentation.
 
+- [Cortex identity](./CORTEX_IDENTITY.md): what the agent says about itself, which surfaces say Cortex, and which keep the upstream OpenHands name.
 - [Architecture](./architecture.md): system boundaries, runtime modes, and quality gates.
 - [Using ACP agents](./ACP_AGENTS.md): onboard and configure external agents (Claude Code, Codex, Gemini CLI, Pi, OpenCode).
 - [Development guide](./DEVELOPMENT.md)
