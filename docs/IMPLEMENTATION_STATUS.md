@@ -122,3 +122,28 @@ Verification:
 - Known gap: the `verify-openhands` feature map does not list `/cortex`, so the
   skill's `map coverage` test fails. Per `AGENTS.md`, verification-skill maps are
   not edited by implementors; the follow-up belongs in a separate PR.
+
+## Supabase development project: migrations and isolation verified (2026-11-23)
+
+Project `hmqbdhkufqvbjafyubxd`. All 13 migrations applied through the Management
+API (`scripts/apply-supabase-migrations.py`), recorded in `public.cortex_migrations`.
+
+| Check | Result |
+|---|---|
+| Migrations applied | 13/13, ledger has 13 rows |
+| Public tables | 22 |
+| Storage buckets | `org-files`, `conversation-exports`, `run-artifacts`, all private |
+| `scripts/verify-supabase-isolation.py` | PASS: two users, two organizations, cross-tenant reads/writes denied, role escalation denied, cleanup leaves zero users |
+| Auth config | `site_url=http://localhost:5173`, redirects allow localhost:3000/5173 and `https://*.vercel.app/**` |
+| API smoke (`uvicorn` + real JWT) | `/health` 200, `/models` 200, `/providers` 200, `/organizations` 200 then `POST` 201, `/profile` 200, `/usage` 200, `/models/available` 200 |
+
+Local replay without credentials also passes: `scripts/verify-supabase-local.sh`.
+
+Operational note: deleting a user who still owns an organization is blocked by
+the `created_by` foreign keys. Transfer ownership or delete the organization
+first; this is the intended safety behaviour, not a bug.
+
+Still required: real AI provider credentials (the catalogue seeds every provider
+disabled and both Cortex-0 entries as `preview`), GitHub App private key and
+webhook secret, Redis for the worker, and Vercel environment variables
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CORTEX_API_URL`).
