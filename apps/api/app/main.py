@@ -1,0 +1,45 @@
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.v1.auth import router as auth_router
+from app.api.v1.health import router as health_router
+from app.core.config import get_settings
+
+logging.basicConfig(level=get_settings().log_level)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info('starting %s', get_settings().app_name)
+    yield
+    logger.info('stopping %s', get_settings().app_name)
+
+
+app = FastAPI(
+    title='OpenHands SaaS API',
+    version='0.1.0',
+    description='Independent multi-tenant API foundation for OpenHands SaaS.',
+    lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origins,
+    allow_credentials=True,
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allow_headers=['Authorization', 'Content-Type', 'X-Request-ID'],
+)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception('unhandled request error path=%s', request.url.path)
+    return JSONResponse(status_code=500, content={'detail': 'Internal server error'})
+
+
+app.include_router(health_router, prefix='/api/v1')
+app.include_router(auth_router, prefix='/api/v1')
