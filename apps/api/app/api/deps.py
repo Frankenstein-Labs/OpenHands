@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, status
 
+from app.core.config import Settings, get_settings
 from app.database.supabase import (
     SupabaseClient,
     SupabaseNotConfigured,
@@ -69,6 +70,14 @@ async def get_path_org_context(
     client: SupabaseClient = Depends(get_supabase_client),
 ) -> OrganizationContext:
     return await _resolve_context(client, access_token, user, organization_id)
+
+
+def require_platform_admin(user: CurrentUser, settings: Settings = Depends(get_settings)) -> None:
+    if not settings.platform_admin_user_ids or user.id not in settings.platform_admin_user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Platform administrator access required',
+        )
 
 
 def require_role(context: OrganizationContext, allowed: set[str]) -> None:

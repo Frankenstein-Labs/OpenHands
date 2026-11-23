@@ -9,6 +9,7 @@ from app.api.v1.agents import router as agents_router
 from app.api.v1.ai_gateway import router as ai_gateway_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.billing import router as billing_router
+from app.api.v1.documents import router as documents_router
 from app.api.v1.files import router as files_router
 from app.api.v1.github import router as github_router
 from app.api.v1.health import router as health_router
@@ -67,3 +68,4 @@ app.include_router(billing_router, prefix='/api/v1')
 app.include_router(invitations_router, prefix='/api/v1')
 app.include_router(github_router, prefix='/api/v1')
 app.include_router(ai_gateway_router, prefix='/api/v1')
+app.include_router(documents_router, prefix='/api/v1')

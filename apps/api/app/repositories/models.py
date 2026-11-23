@@ -37,3 +37,29 @@ class ModelsRepository:
             params={'select': _MODEL_SELECT, 'id': f'eq.{model_id}', 'limit': '1'},
         )
         return result[0] if result else None
+
+    async def create_provider(self, data: dict[str, Any]) -> dict[str, Any]:
+        result = await self.client.request(
+            'POST', 'ai_providers', admin=True, json=data, prefer='return=representation',
+        )
+        return result[0] if isinstance(result, list) else result
+
+    async def update_provider(self, provider_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        result = await self.client.request(
+            'PATCH', 'ai_providers', admin=True,
+            params={'id': f'eq.{provider_id}'}, json=data, prefer='return=representation',
+        )
+        return result[0] if result else None
+
+    async def create_model(self, data: dict[str, Any]) -> dict[str, Any]:
+        result = await self.client.request(
+            'POST', 'ai_models', admin=True, json=data, prefer='return=representation',
+        )
+        return result[0] if isinstance(result, list) else result
+
+    async def update_model(self, model_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        result = await self.client.request(
+            'PATCH', 'ai_models', admin=True,
+            params={'id': f'eq.{model_id}'}, json=data, prefer='return=representation',
+        )
+        return result[0] if result else None

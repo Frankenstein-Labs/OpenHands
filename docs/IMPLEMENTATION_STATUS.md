@@ -17,9 +17,9 @@ Transform OpenHands Agent Canvas into an independent SaaS platform based on Open
 | Phase 6 — AI Gateway | Implemented (metered endpoint) | `app/ai_gateway/` provider abstraction (OpenAI-compatible, OpenRouter, Together, Hugging Face, Vercel AI Gateway, Frankenstein), capability-aware routing with retry rules, catalogue from `ai_models`/`ai_providers`, `POST /api/v1/ai/generate` with 402 budget enforcement and atomic usage accounting. 16 unit tests. | No provider credential is configured, so live generation is unproven. Cloudflare Workers AI adapter not implemented. |
 | Phase 7 — OpenHands runner | Control plane implemented | `agent_runs`/`agent_run_events`, create/get/cancel/events routes, concurrent-run quota, budget reservation, worker cleanup (`reap_stale_runs`). 6 unit tests. | Sandbox provisioning is delegated to the Agent Server; isolation limits must be verified on the target platform. |
 | Phase 8 — Redis/workers | Implemented | `apps/api/app/worker/` (job envelope, Redis queue with idempotent enqueue, retry, dead letter), `apps/worker/` package and Dockerfile. 4 unit tests. | No managed Redis provisioned yet. |
-| Phase 9 — Supabase Storage/RAG | Storage implemented; RAG pending | Private buckets and `files` table with org-prefixed object paths, presign/list/download/delete routes with size and MIME validation, signed URLs. RAG ingestion is not implemented. | Requires hosted Supabase to verify bucket policies. |
+| Phase 9 — Supabase Storage/RAG | Storage + RAG implemented (code + unit tests) | Private buckets, `files` presign/list/delete routes, and `documents`/`document_chunks` with `match_document_chunks`; `POST/GET/DELETE /api/v1/documents` and `GET /api/v1/documents/search` ingest text in-process and search by cosine distance. 6 unit tests. | Embeddings are generated only when a provider returns them; hosted Supabase (pgvector) is required to verify the SQL function. |
 | Phase 10 — Billing/quotas | Billing abstraction + quotas implemented | Provider-neutral billing service, plans/subscription/checkout/invoices routes, signed idempotent webhook, server-side quota and credit enforcement. 6 unit tests. | No Stripe account configured; no real charge is possible or attempted. |
-| Phase 11 — SaaS/admin UI | Not started | Canvas settings exist; SaaS dashboard/admin surfaces do not. | Must connect only to working backend contracts. |
+| Phase 11 — SaaS/admin UI | First slice implemented | `/cortex` workspace: Supabase Auth sign-in/up/out with refresh, profile, organization switch, members/invitations, model catalogue + metered playground, usage/limits, documents + search, GitHub installations/repositories. Backed by the real FastAPI routes; 5 new tests. | Cortex surfaces are English-only (file-scoped `i18next/no-literal-string` disable) until translations land. The verify-openhands feature map does not yet cover `/cortex`, so `map coverage` reports it as unmapped. |
 | Phase 12 — Production validation | Not started | Existing CI/Docker release machinery is present but SaaS stack is absent. | Requires integration, security, load, backup and restore evidence. |
 
 ## Phase 2 change log
@@ -81,3 +81,44 @@ Documentation added: `CORTEX_ARCHITECTURE.md`, `CORTEX_SECURITY.md`,
 Still blocked on external access: hosted Supabase migrations/RLS, GitHub App
 registration, AI provider credentials, Redis provisioning, Stripe. See
 `docs/SUPABASE_ACCESS_REQUIREMENTS.md`.
+
+
+## Phase 9 RAG + Phase 11 Cortex UI change log (current pass)
+
+Backend:
+
+- `supabase/migrations/20261123051000_rag_documents.sql`: `documents`,
+  `document_chunks`, org-scoped RLS, `match_document_chunks` (security invoker).
+- `supabase/migrations/20261123052000_cortex0_catalog.sql`: Cortex-0 catalogue
+  row as `preview` so it is listed but never marked available.
+- `app/schemas/documents.py`, `app/repositories/documents.py`,
+  `app/services/documents.py`, `app/api/v1/documents.py` (ingest, list, get,
+  delete, semantic search).
+- Platform-admin catalogue writes: `POST/PATCH /api/v1/providers` and
+  `POST/PATCH /api/v1/models`, guarded by `CORTEX_PLATFORM_ADMIN_USER_IDS`
+  (empty by default, so no one is an admin until configured). Writes use the
+  service role; reads stay on the user JWT.
+- Verification harness: `scripts/verify-supabase-isolation.py` and
+  `docs/SUPABASE_VERIFICATION_PLAN.md`. The harness refuses production and
+  remote URLs by default, creates two users/organizations, and asserts that
+  tenant B cannot read or write tenant A's rows.
+
+Frontend:
+
+- `src/api/cortex/` — Supabase Auth REST (no new dependency), session refresh,
+  typed `cortexFetch`, React Query hooks for every SaaS route.
+- `/cortex` route tree with Overview, Organization, Models, Usage, Documents,
+  Integrations and Profile pages; sidebar entry `Cortex`.
+- Agent Canvas routes, components, i18n and settings are untouched except for
+  the added sidebar link (the brand string is exempted from the literal-string rule).
+
+Verification:
+
+- Backend: `pytest -q` → 78 passed; `ruff check app tests` → clean.
+- Frontend: `npm run typecheck` → 0 errors; `npm run lint` → 0 errors;
+  `npm run build` → success; new Vitest files → 5 passed.
+- `python scripts/verify-supabase-isolation.py` without credentials exits 1 with
+  a clear message; production and remote guards were exercised.
+- Known gap: the `verify-openhands` feature map does not list `/cortex`, so the
+  skill's `map coverage` test fails. Per `AGENTS.md`, verification-skill maps are
+  not edited by implementors; the follow-up belongs in a separate PR.

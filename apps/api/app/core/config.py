@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     stripe_price_ids: dict[str, str] = {}
     billing_success_url: str | None = None
     billing_cancel_url: str | None = None
+    # Platform operators allowed to edit the global AI catalogue.
+    platform_admin_user_ids: list[str] = []
+
+    @field_validator('platform_admin_user_ids', mode='before')
+    @classmethod
+    def parse_platform_admin_user_ids(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(',') if item.strip()]
+        return value
 
     @field_validator('cors_origins', mode='before')
     @classmethod
