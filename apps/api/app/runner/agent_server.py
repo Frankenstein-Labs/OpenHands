@@ -30,10 +30,11 @@ class AgentServerRunner:
             self._client = httpx.AsyncClient(timeout=self.settings.agent_server_timeout_seconds)
         return self._client
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self, api_key: str | None = None) -> dict[str, str]:
         headers = {'Content-Type': 'application/json'}
-        if self.settings.agent_server_api_key:
-            headers['X-Session-API-Key'] = self.settings.agent_server_api_key
+        key = api_key or self.settings.agent_server_api_key
+        if key:
+            headers['X-Session-API-Key'] = key
         return headers
 
     def _url(self, path: str, base_url: str | None = None) -> str:
@@ -48,9 +49,10 @@ class AgentServerRunner:
         title: str | None = None,
         working_dir: str | None = None,
         base_url: str | None = None,
+        session_api_key: str | None = None,
         **_: object,
     ) -> dict:
-        if not self.configured:
+        if not self.configured and not base_url:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         llm: dict = {}
         model = model_id or self.settings.agent_server_llm_model
@@ -79,28 +81,40 @@ class AgentServerRunner:
             payload['title'] = title
         response = await self._http().post(
             self._url('/api/conversations', base_url),
-            headers=self._headers(),
+            headers=self._headers(session_api_key),
             json=payload,
         )
         response.raise_for_status()
         return response.json()
 
-    async def status(self, conversation_id: str, *, base_url: str | None = None) -> dict:
+    async def status(
+        self,
+        conversation_id: str,
+        *,
+        base_url: str | None = None,
+        session_api_key: str | None = None,
+    ) -> dict:
         if not self.configured and not base_url:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         response = await self._http().get(
             self._url(f'/api/conversations/{conversation_id}', base_url),
-            headers=self._headers(),
+            headers=self._headers(session_api_key),
         )
         response.raise_for_status()
         return response.json()
 
-    async def cancel(self, conversation_id: str, *, base_url: str | None = None) -> None:
+    async def cancel(
+        self,
+        conversation_id: str,
+        *,
+        base_url: str | None = None,
+        session_api_key: str | None = None,
+    ) -> None:
         if not self.configured and not base_url:
             raise RunnerUnavailable('AGENT_SERVER_URL is not configured')
         response = await self._http().post(
             self._url(f'/api/conversations/{conversation_id}/interrupt', base_url),
-            headers=self._headers(),
+            headers=self._headers(session_api_key),
         )
         if response.status_code >= 400:
             raise RunnerUnavailable(f'cancel failed with {response.status_code}')

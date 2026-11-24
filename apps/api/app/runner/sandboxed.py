@@ -88,6 +88,7 @@ class SandboxedAgentServerRunner:
                 # directory, so the agent can only see its own files.
                 working_dir=working_dir or '/workspace',
                 base_url=sandbox.api_url,
+                session_api_key=sandbox.session_api_key,
             )
         except Exception:
             await self.provider.stop(sandbox)
@@ -100,6 +101,7 @@ class SandboxedAgentServerRunner:
                 'workspace': sandbox.workspace,
                 'api_url': sandbox.api_url,
                 'image': sandbox.image,
+                'session_api_key': sandbox.session_api_key,
                 'run_id': str(sandbox.run_id),
                 'organization_id': str(sandbox.organization_id),
             },
@@ -110,17 +112,18 @@ class SandboxedAgentServerRunner:
             raise SandboxError('sandbox has no reachable address')
         deadline = asyncio.get_running_loop().time() + self.settings.sandbox_ready_timeout_seconds
         headers = {}
-        if self.settings.agent_server_api_key:
-            headers['X-Session-API-Key'] = self.settings.agent_server_api_key
+        key = sandbox.session_api_key or self.settings.agent_server_api_key
+        if key:
+            headers['X-Session-API-Key'] = key
         async with httpx.AsyncClient(timeout=5.0) as client:
             while True:
                 try:
                     response = await client.get(
-                        f'{sandbox.api_url}/api/conversations/search',
+                        f'{sandbox.api_url}/health',
                         params={'limit': '1'},
                         headers=headers,
                     )
-                    if response.status_code < 500:
+                    if response.status_code == 200:
                         return
                 except httpx.HTTPError:
                     pass
@@ -130,11 +133,27 @@ class SandboxedAgentServerRunner:
                     )
                 await asyncio.sleep(1.0)
 
-    async def status(self, conversation_id: str, *, base_url: str | None = None) -> dict:
-        return await self.agent.status(conversation_id, base_url=base_url)
+    async def status(
+        self,
+        conversation_id: str,
+        *,
+        base_url: str | None = None,
+        session_api_key: str | None = None,
+    ) -> dict:
+        return await self.agent.status(
+            conversation_id, base_url=base_url, session_api_key=session_api_key
+        )
 
-    async def cancel(self, conversation_id: str, *, base_url: str | None = None) -> None:
-        await self.agent.cancel(conversation_id, base_url=base_url)
+    async def cancel(
+        self,
+        conversation_id: str,
+        *,
+        base_url: str | None = None,
+        session_api_key: str | None = None,
+    ) -> None:
+        await self.agent.cancel(
+            conversation_id, base_url=base_url, session_api_key=session_api_key
+        )
 
     async def enforce_limits(self, sandbox: dict | None = None) -> None:
         if not sandbox or not hasattr(self.provider, 'enforce_disk_limit'):
@@ -160,6 +179,7 @@ class SandboxedAgentServerRunner:
             workspace=sandbox['workspace'],
             api_url=sandbox.get('api_url'),
             image=sandbox.get('image') or '',
+            session_api_key=sandbox.get('session_api_key'),
         )
 
     async def aclose(self) -> None:

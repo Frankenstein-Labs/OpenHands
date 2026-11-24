@@ -58,6 +58,9 @@ class Sandbox:
     organization_id: UUID
     workspace: str
     api_url: str | None = None
+    # Per-sandbox Agent Server key: the server only binds a routable address
+    # when one is configured, and every request must carry it.
+    session_api_key: str | None = None
     image: str = ''
 
 

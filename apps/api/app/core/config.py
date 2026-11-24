@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Sandboxes: one isolated container per run when enabled.
     sandbox_provider: str = 'shared'  # 'shared' | 'docker'
-    sandbox_image: str = 'ghcr.io/all-hands-ai/agent-server:latest'
+    sandbox_image: str = 'ghcr.io/openhands/agent-server:1.63.1-python'
     sandbox_workspace_root: str = '/var/lib/cortex/sandboxes'
     sandbox_network: str = 'cortex-sandboxes'
     sandbox_cpus: float = 1.0
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     sandbox_pids: int = 512
     sandbox_disk_mb: int = 4096
     sandbox_timeout_seconds: int = 3600
-    sandbox_agent_port: int = 8001
+    sandbox_agent_port: int = 8000
     sandbox_ready_timeout_seconds: float = 120.0
 
     # Storage

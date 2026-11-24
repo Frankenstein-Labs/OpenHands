@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,7 +48,7 @@ class DockerSandboxProvider:
         workspace_root: str,
         network: str = 'cortex-sandboxes',
         docker: str = 'docker',
-        agent_server_port: int = 8001,
+        agent_server_port: int = 8000,
         command_timeout: float = 60.0,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
@@ -125,6 +126,16 @@ class DockerSandboxProvider:
         name = self._container_name(spec.run_id)
         await self._docker('rm', '-f', name, check=False)
 
+        # The Agent Server is a frozen binary: it needs a writable directory to
+        # unpack itself, and it only listens on a routable address when a
+        # session key is configured. Both live in the run workspace so the disk
+        # probe sees every byte the sandbox writes.
+        home = workspace / '.home'
+        scratch = workspace / '.tmp'
+        for path in (home, scratch):
+            path.mkdir(mode=0o700, exist_ok=True)
+        session_api_key = spec.env.get('SESSION_API_KEY') or secrets.token_urlsafe(32)
+
         args = [
             'run', '-d', '--name', name,
             '--label', RUN_LABEL,
@@ -137,7 +148,8 @@ class DockerSandboxProvider:
             '--memory-swap', f'{spec.limits.memory_mb}m',
             '--pids-limit', str(spec.limits.pids),
             '--read-only',
-            '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m',
+            # `exec` is required: tooling unpacks and runs helpers from /tmp.
+            '--tmpfs', '/tmp:rw,nosuid,size=64m',
             '--cap-drop', 'ALL',
             '--security-opt', 'no-new-privileges',
             '--user', self.sandbox_user,
@@ -148,6 +160,9 @@ class DockerSandboxProvider:
             '-w', '/workspace',
             '-e', f'CORTEX_RUN_ID={spec.run_id}',
             '-e', f'CORTEX_ORGANIZATION_ID={spec.organization_id}',
+            '-e', 'HOME=/workspace/.home',
+            '-e', 'TMPDIR=/workspace/.tmp',
+            '-e', f'SESSION_API_KEY={session_api_key}',
         ]
         for key, value in spec.env.items():
             args += ['-e', f'{key}={value}']
@@ -175,6 +190,7 @@ class DockerSandboxProvider:
             workspace=str(workspace),
             api_url=api_url,
             image=spec.image,
+            session_api_key=session_api_key,
         )
 
     async def stop(self, sandbox: Sandbox) -> None:
