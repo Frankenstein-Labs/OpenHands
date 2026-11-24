@@ -448,7 +448,7 @@ export function HomeChatLauncher() {
     <div
       data-testid="home-chat-launcher"
       className={cn(
-        "flex w-full flex-col items-center",
+        "librechat-home-launcher flex w-full flex-col items-center",
         activeLaunch ? "h-full min-h-0 py-4" : "pt-[max(4rem,28vh)] pb-10",
       )}
     >
@@ -509,7 +509,7 @@ export function HomeChatLauncher() {
           />
         </div>
 
-        <div className="w-full">
+        <div className="librechat-composer-zone w-full">
           <CustomChatInput
             onSubmit={handleSubmitWithModelGuard}
             onFilesPaste={handleUpload}

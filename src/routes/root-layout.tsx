@@ -172,7 +172,7 @@ function MainAppContent() {
           <div
             data-testid="root-layout"
             className={cn(
-              "app-shell-safe-area h-dvh lg:min-w-5xl flex flex-col md:flex-row bg-canvas-base overflow-hidden p-0",
+              "app-shell-safe-area librechat-shell h-dvh lg:min-w-5xl flex flex-col md:flex-row bg-canvas-base overflow-hidden p-0",
               showTitleBarBand && "app-shell-titlebar-inset",
             )}
           >
@@ -200,7 +200,7 @@ function MainAppContent() {
               <div
                 id="root-outlet"
                 className={cn(
-                  "relative min-h-0 flex-1 px-0 custom-scrollbar",
+                  "librechat-main relative min-h-0 flex-1 px-0 custom-scrollbar",
                   isConversationRoute ? "overflow-hidden" : "overflow-auto",
                 )}
               >
