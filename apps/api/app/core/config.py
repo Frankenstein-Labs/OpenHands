@@ -36,6 +36,23 @@ class Settings(BaseSettings):
     agent_server_llm_base_url: str | None = None
     agent_server_llm_api_key: str | None = None
 
+    # Encryption for tenant provider keys (Fernet key, base64, 32 bytes).
+    # Absent means the gateway refuses to store organization keys.
+    secret_key: str | None = None
+
+    # Sandboxes: one isolated container per run when enabled.
+    sandbox_provider: str = 'shared'  # 'shared' | 'docker'
+    sandbox_image: str = 'ghcr.io/all-hands-ai/agent-server:latest'
+    sandbox_workspace_root: str = '/var/lib/cortex/sandboxes'
+    sandbox_network: str = 'cortex-sandboxes'
+    sandbox_cpus: float = 1.0
+    sandbox_memory_mb: int = 2048
+    sandbox_pids: int = 512
+    sandbox_disk_mb: int = 4096
+    sandbox_timeout_seconds: int = 3600
+    sandbox_agent_port: int = 8001
+    sandbox_ready_timeout_seconds: float = 120.0
+
     # Storage
     max_upload_bytes: int = 52428800  # 50 MiB, matches supabase/config.toml
     storage_signed_url_ttl_seconds: int = 600

@@ -11,14 +11,17 @@ from app.database.supabase import (
     get_supabase_client,
 )
 from app.repositories.models import ModelsRepository
+from app.repositories.org_ai import OrgAIRepository
 from app.repositories.usage import UsageRepository
 from app.schemas.ai_gateway import GenerateIn, GenerateOut
+from app.security.secrets import SecretBox, SecretBoxUnavailable
 from app.services.ai_gateway import (
     AIGatewayService,
     BudgetExceeded,
     EntitlementMissing,
     ModelUnavailable,
 )
+from app.services.org_ai import OrgAIService
 
 router = APIRouter(prefix='/ai', tags=['ai-gateway'])
 
@@ -32,11 +35,21 @@ def get_ai_gateway_service(
         base_urls=settings.ai_provider_base_urls,
         timeout=settings.ai_gateway_timeout_seconds,
     )
+    secret_box: SecretBox | None = None
+    if settings.secret_key:
+        try:
+            secret_box = SecretBox(settings.secret_key)
+        except SecretBoxUnavailable:
+            secret_box = None
+    org_ai = OrgAIService(OrgAIRepository(client), secret_box)
     return AIGatewayService(
         ModelsRepository(client),
         UsageRepository(client),
         registry,
         credits_per_1k_tokens=settings.ai_gateway_credits_per_1k_tokens,
+        # Tenant keys and limits override the deployment defaults per request.
+        credential_resolver=org_ai.resolve_credentials,
+        settings_resolver=org_ai.settings_for_server,
     )
 
 

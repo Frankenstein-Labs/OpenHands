@@ -42,18 +42,38 @@ class RecordingQueue:
 
 
 class FakeRunner:
-    def __init__(self, conversation: dict | None = None, status: dict | None = None) -> None:
+    def __init__(
+        self,
+        conversation: dict | None = None,
+        status: dict | None = None,
+        sandbox: dict | None = None,
+        limit_error: Exception | None = None,
+    ) -> None:
         self.conversation = conversation or {'id': 'conv-1'}
         self.status_payload = status or {}
+        self.sandbox = sandbox
+        self.limit_error = limit_error
         self.started: list[dict] = []
+        self.status_base_urls: list[str | None] = []
+        self.stopped: list[dict | None] = []
         self.settings = Settings(agent_server_url='http://agent-server')
 
     async def start(self, **kwargs):
         self.started.append(kwargs)
+        if self.sandbox:
+            return {**self.conversation, 'sandbox': self.sandbox}
         return self.conversation
 
-    async def status(self, conversation_id):
+    async def status(self, conversation_id, *, base_url=None):
+        self.status_base_urls.append(base_url)
         return self.status_payload
+
+    async def enforce_limits(self, sandbox=None):
+        if self.limit_error is not None:
+            raise self.limit_error
+
+    async def stop_sandbox(self, sandbox=None):
+        self.stopped.append(sandbox)
 
     async def aclose(self):
         return None
@@ -136,6 +156,69 @@ async def test_abandoned_job_settles_the_run_as_failed() -> None:
 
     assert supabase.settled['target_status'] == 'failed'
     assert 'retries' in supabase.settled['target_error']
+
+
+SANDBOX = {
+    'id': 'container-1',
+    'run_id': 'run-1',
+    'organization_id': 'org-1',
+    'workspace': '/sandboxes/org-1/run-1',
+    'api_url': 'http://10.0.0.2:8001',
+    'image': 'agent-server:test',
+}
+
+
+@pytest.mark.asyncio
+async def test_execute_agent_run_persists_the_sandbox_on_the_run() -> None:
+    run = {'id': 'run-1', 'status': 'queued', 'prompt': 'hello', 'model_id': None,
+           'organization_id': 'org-1', 'metadata': {'requested_by': 'u1'}}
+    runner = FakeRunner(sandbox=SANDBOX)
+    ctx, supabase, _ = make_ctx(run, runner)
+
+    await execute_agent_run(ctx, new_job('execute_agent_run', {'run_id': 'run-1'}))
+
+    patch = [call for call in supabase.calls if call[0] == 'PATCH'][-1][2]['json']
+    assert patch['metadata']['sandbox']['id'] == 'container-1'
+    # Existing metadata is preserved, not replaced.
+    assert patch['metadata']['requested_by'] == 'u1'
+    assert runner.started[0]['run_id'] == 'run-1'
+    assert runner.started[0]['organization_id'] == 'org-1'
+
+
+@pytest.mark.asyncio
+async def test_reconcile_uses_the_sandbox_url_and_stops_the_container() -> None:
+    run = {'id': 'run-1', 'status': 'running', 'metadata': {'sandbox': SANDBOX}}
+    runner = FakeRunner(status={'execution_status': 'finished'})
+    ctx, supabase, _ = make_ctx(run, runner)
+
+    result = await reconcile_agent_run(
+        ctx, new_job('reconcile_agent_run', {'run_id': 'run-1', 'conversation_id': 'conv-1'})
+    )
+
+    assert runner.status_base_urls == ['http://10.0.0.2:8001']
+    assert runner.stopped == [SANDBOX]
+    assert result['settled'] == 'completed'
+    assert supabase.settled['target_status'] == 'completed'
+
+
+@pytest.mark.asyncio
+async def test_reconcile_fails_the_run_when_the_disk_budget_is_exceeded() -> None:
+    from app.sandbox.base import SandboxLimitError
+
+    run = {'id': 'run-1', 'status': 'running', 'metadata': {'sandbox': SANDBOX}}
+    runner = FakeRunner(
+        status={'execution_status': 'running'},
+        limit_error=SandboxLimitError('sandbox used 5000 MB, over its 4096 MB budget'),
+    )
+    ctx, supabase, _ = make_ctx(run, runner)
+
+    result = await reconcile_agent_run(
+        ctx, new_job('reconcile_agent_run', {'run_id': 'run-1', 'conversation_id': 'conv-1'})
+    )
+
+    assert result['settled'] == 'failed'
+    assert 'budget' in supabase.settled['target_error']
+    assert runner.stopped == [SANDBOX]
 
 
 @pytest.mark.asyncio

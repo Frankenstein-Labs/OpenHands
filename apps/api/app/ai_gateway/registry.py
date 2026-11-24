@@ -36,24 +36,39 @@ class ProviderRegistry:
         self.timeout = timeout
         self.client = client
 
-    def build(self, provider_row: Mapping[str, Any]) -> Provider | None:
+    def build(
+        self,
+        provider_row: Mapping[str, Any],
+        credentials: Mapping[str, str] | None = None,
+    ) -> Provider | None:
         factory = _FACTORIES.get(provider_row['kind'])
         if factory is None:
             return None
         provider_id = provider_row['id']
+        keys = credentials if credentials is not None else self.credentials
         return factory(
-            api_key=self.credentials.get(provider_id),
+            api_key=keys.get(provider_id),
             base_url=self.base_urls.get(provider_id) or provider_row.get('base_url'),
             timeout=self.timeout,
             client=self.client,
         )
 
-    def build_enabled(self, providers: Iterable[Mapping[str, Any]]) -> dict[str, Provider]:
+    def build_enabled(
+        self,
+        providers: Iterable[Mapping[str, Any]],
+        credentials: Mapping[str, str] | None = None,
+    ) -> dict[str, Provider]:
+        """Build the enabled providers, optionally with tenant-specific keys.
+
+        Passing `credentials` lets one request use an organization's own keys
+        without mutating shared state, so two tenants can never see each
+        other's keys through a cached registry.
+        """
         built: dict[str, Provider] = {}
         for row in providers:
             if not row.get('enabled'):
                 continue
-            provider = self.build(row)
+            provider = self.build(row, credentials)
             if provider is not None:
                 built[row['id']] = provider
         return built

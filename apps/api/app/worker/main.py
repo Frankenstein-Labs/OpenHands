@@ -11,7 +11,7 @@ import redis.asyncio as redis
 
 from app.core.config import get_settings
 from app.database.supabase import SupabaseClient
-from app.runner.agent_server import AgentServerRunner
+from app.runner.sandboxed import build_runner
 from app.worker.context import WorkerContext
 from app.worker.handlers import (
     execute_agent_run,
@@ -121,7 +121,7 @@ async def run_forever(
         ctx = WorkerContext(
             supabase=SupabaseClient(settings),
             queue=queue,
-            runner=AgentServerRunner(settings),
+            runner=build_runner(settings),
         )
     stop = stop or asyncio.Event()
     last_reclaim = 0.0

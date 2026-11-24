@@ -150,6 +150,43 @@ Evidence for this branch:
 - Live Agent Server run: conversation finished, 8395 prompt + 36 completion
   tokens, priced at 4.2515 credits, settled once, redelivery skipped.
 
-Still open: per-tenant containers and enforced CPU/RAM/disk/network limits,
-per-organization model credentials from the AI Gateway, and remote Supabase
-verification (blocked until a development project is authorized).
+## Tenant isolation and security (branch `feat/cortex-tenant-isolation`)
+
+- Sandboxes: `app/sandbox/` defines a provider contract and a Docker provider.
+  Every run gets its own container: own bind-mounted workspace
+  (`SANDBOX_WORKSPACE_ROOT/<org>/<run>`), own `/tmp` tmpfs, non-root user,
+  `--cap-drop ALL`, `no-new-privileges`, read-only root, and an internal-only
+  network with no published ports. CPU, memory, PID, disk and wall-clock limits
+  are enforced (`--cpus`, `--memory`, `--pids-limit`, a disk probe and a
+  reaper).
+- Runner: `SandboxedAgentServerRunner` provisions the container, waits for the
+  Agent Server inside it, then creates the conversation with that container's
+  URL. A failed start removes the container; a finished run stops it. Sandbox
+  metadata is stored on the run so a restarted worker can still reach and stop
+  it. `SANDBOX_PROVIDER=docker` enables it; `shared` keeps the previous
+  behaviour.
+- Tenant provider keys: `organization_ai_credentials` stores Fernet ciphertext
+  with no client read policy at all; admins see metadata through a definer
+  function and only the service role can read ciphertext. The gateway merges
+  the organization's keys per request, and per-organization rate and monthly
+  token ceilings are enforced before the provider is called.
+- Security assertions: `scripts/supabase-local-tenant-security.sql` proves
+  cross-tenant reads and writes fail for runs, run events, files, AI
+  credentials and AI settings, that a `member` cannot manage credentials, and
+  that ciphertext never leaves the service role.
+- Load: `scripts/loadtest_admission.py` measures the admission path with
+  10/50/100 concurrent users and a contended single-organization run. Results
+  and limits are recorded in `docs/CORTEX_ISOLATION.md`.
+
+Evidence for this branch:
+
+- `cd apps/api && pytest -q` → 131 passed, 1 skipped, including 9 tests that
+  run real `alpine:3.20` containers (workspace isolation, no host/container
+  escape, non-root, resource limits, reaping, disk budget).
+- `bash scripts/verify-supabase-local.sh` → 6/6 steps on a fresh database.
+- `scripts/loadtest_admission.py`: 100 users × 20 admissions → 2000 requests,
+  0 failures, p95 36 ms, p99 127 ms on one local Postgres.
+
+Still open: remote Supabase verification (blocked until a development project
+is authorized), a real Agent Server image in the sandbox tests, and a
+Kubernetes sandbox provider for multi-host scale.
