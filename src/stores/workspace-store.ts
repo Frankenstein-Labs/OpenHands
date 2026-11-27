@@ -9,7 +9,7 @@ interface WorkspaceStore {
 
   // Preview server info
   previewServer: PreviewServerInfo;
-  setPreviewServer: (server: Partial<PreviewServerInfo>) => void;
+  setPreviewServer: (server: Partial<PreviewServerInfo> | ((prev: PreviewServerInfo) => Partial<PreviewServerInfo>)) => void;
   resetPreviewServer: () => void;
 
   // Artifacts (file tree)
@@ -43,7 +43,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       previewServer: DEFAULT_PREVIEW_SERVER,
       setPreviewServer: (server) =>
         set((state) => ({
-          previewServer: { ...state.previewServer, ...server },
+          previewServer: {
+            ...state.previewServer,
+            ...(typeof server === "function" ? server(state.previewServer) : server),
+          },
         })),
       resetPreviewServer: () => set({ previewServer: DEFAULT_PREVIEW_SERVER }),
 
