@@ -4,13 +4,13 @@ import {
   useConversationStore,
 } from "#/stores/conversation-store";
 import { useFilesTabStore } from "#/stores/files-tab-store";
+import { useWorkspaceStore } from "#/stores/workspace-store";
 import type { CanvasUIAction } from "#/types/agent-server/core";
 import { setConversationState } from "#/utils/conversation-local-storage";
 import { toFilesTabPath } from "#/utils/path-utils";
 
 const VALID_TABS: ReadonlySet<ConversationTab> = new Set<ConversationTab>([
   "files",
-  "browser",
   "terminal",
   "planner",
   "tasklist",
@@ -88,8 +88,7 @@ export function handleCanvasUIAction(
   conversationId: string | null = null,
 ): void {
   switch (action.command) {
-    case "navigate_to_file":
-    case "show_preview": {
+    case "navigate_to_file": {
       navigateToTab("files", conversationId);
       if (!action.path) return;
 
@@ -99,6 +98,19 @@ export function handleCanvasUIAction(
       if (!path) return;
 
       useFilesTabStore.getState().setSelectedPath(path, conversationId);
+      return;
+    }
+    case "show_preview": {
+      // Reveal the workspace Preview pane and surface the runtime-reported
+      // preview URL when the agent provides one. Never fabricate a URL.
+      const workspace = useWorkspaceStore.getState();
+      workspace.setActiveTab("preview");
+      if (action.path) {
+        workspace.setPreviewServer({
+          url: action.path,
+          status: "ready",
+        });
+      }
       return;
     }
     case "open_tab":

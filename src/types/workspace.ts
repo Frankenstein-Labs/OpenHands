@@ -2,6 +2,25 @@
  * Workspace types for the new three-pane workspace (Chat, Preview, Artifacts)
  */
 
+// Legacy workspace types for backward compatibility
+export interface LocalWorkspace {
+  id: string;
+  name: string;
+  path: string;
+  parentPath?: string;
+  parent?: LocalWorkspaceParent;
+  gitStatus?: {
+    branch: string;
+    hasUncommittedChanges: boolean;
+  };
+}
+
+export interface LocalWorkspaceParent {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export type WorkspaceTab = "chat" | "preview" | "artifacts";
 
 export interface WorkspaceTabConfig {

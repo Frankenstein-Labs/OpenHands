@@ -12,26 +12,21 @@ import { cn } from "#/utils/utils";
 import { ChatActionTooltip } from "#/components/features/chat/chat-action-tooltip";
 import BlockDrawerLeftIcon from "#/icons/block-drawer-left.svg?react";
 import { mobileTopBarIconButtonClassName } from "#/utils/mobile-top-bar-icon-button-classes";
-import { ChatInterfaceWrapper } from "./chat-interface-wrapper";
-import { ConversationTabContent } from "../conversation-tabs/conversation-tab-content/conversation-tab-content";
-import { ConversationNameWithStatus } from "../conversation-name-with-status";
-import { ConversationTabs } from "../conversation-tabs/conversation-tabs";
-import { ResizeHandle } from "../../../ui/resize-handle";
-import { useResizablePanels } from "#/hooks/use-resizable-panels";
-import { useConversationStore } from "#/stores/conversation-store";
+import { WorkspaceChrome } from "#/components/features/workspace/workspace-chrome";
 import { AUTOMATION_SETUP_SHOW_AGENT_EVENT } from "#/components/features/automations/setup/automation-setup-agent-request";
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { consumeAutomationSetupHandoff } from "#/api/automation-setup-handoff-store";
 import { getAutomationFormSession } from "#/api/automation-form-session";
 import type { AutomationSetupDraft } from "#/api/automation-setup-types";
 import { useConversationId } from "#/hooks/use-conversation-id";
+import { useConversationStore } from "#/stores/conversation-store";
+import { useConversationOverviewDrawerOptional } from "../conversation-overview-drawer-context";
 import {
   useBreakpoint,
   SIDEBAR_RAIL_COLLAPSE_MAX_WIDTH,
 } from "#/hooks/use-breakpoint";
 import { SidebarMobileMenuToggle } from "#/components/features/sidebar/sidebar-mobile-menu-toggle";
 import { ConversationOverviewDrawer } from "../conversation-overview-drawer";
-import { useConversationOverviewDrawerOptional } from "../conversation-overview-drawer-context";
 import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 import { I18nKey } from "#/i18n/declaration";
 import { hasAutomationSetupModeTag } from "#/utils/automation-draft-tags";
@@ -84,41 +79,17 @@ function AutomationSetupDockedComposer({
   );
 }
 
-function getDesktopTabPanelClass(isRightPanelShown: boolean) {
-  return isRightPanelShown
-    ? "translate-x-0 opacity-100"
-    : "w-0 translate-x-full opacity-0";
-}
-
 export function ConversationMain({ children }: { children?: ReactNode } = {}) {
   const { t } = useTranslation("openhands");
   const { conversationId } = useConversationId();
   const { data: conversation } = useActiveConversation();
   const isMobile = useBreakpoint();
   const isSidebarRailHidden = useBreakpoint(SIDEBAR_RAIL_COLLAPSE_MAX_WIDTH);
-  const { isRightPanelShown, setHasRightPanelToggled, setIsRightPanelShown } =
-    useConversationStore();
-  const [openedTabConversationId, setOpenedTabConversationId] = useState<
-    string | null
-  >(null);
-  const shouldMountTabs =
-    !children &&
-    (isRightPanelShown || openedTabConversationId === conversationId);
-
-  // Keep an opened panel mounted when collapsed, but defer it in the next chat.
-  useEffect(() => {
-    setOpenedTabConversationId((previous) =>
-      !isMobile && isRightPanelShown
-        ? conversationId
-        : previous === conversationId
-          ? previous
-          : null,
-    );
-  }, [conversationId, isMobile, isRightPanelShown]);
-  // Derived per conversation during render: holding it in state reset by an
-  // effect let the first render after a conversation switch reuse the previous
-  // conversation's handoff, mounting the setup panel (which tags the
-  // conversation as an automation setup) on the wrong conversation.
+  const {
+    isRightPanelShown,
+    setHasRightPanelToggled,
+    setIsRightPanelShown,
+  } = useConversationStore();
   const isAutomationSetupModeHandoff = useMemo(
     () => consumeAutomationSetupHandoff(conversationId),
     [conversationId],
@@ -139,7 +110,6 @@ export function ConversationMain({ children }: { children?: ReactNode } = {}) {
     isAutomationSetupModeHandoff || hasTaggedAutomationSetupMode;
   const automationSetupDraft = useMemo(() => {
     if (!isAutomationSetupMode) return null;
-    // Preserve the handoff's unsaved form and edit metadata on first mount.
     return (
       (conversationId ? getAutomationFormSession(conversationId) : null) ??
       BLANK_AUTOMATION_SETUP_DRAFT
@@ -147,14 +117,6 @@ export function ConversationMain({ children }: { children?: ReactNode } = {}) {
   }, [conversationId, isAutomationSetupMode]);
   const showMobileAutomationForm =
     isMobile && isAutomationSetupMode && mobileAutomationView === "form";
-
-  const { leftWidth, rightWidth, isDragging, containerRef, handleMouseDown } =
-    useResizablePanels({
-      defaultLeftWidth: 50,
-      minLeftWidth: 30,
-      maxLeftWidth: 80,
-      storageKey: "desktop-layout-panel-width",
-    });
 
   useEffect(() => {
     if (!automationSetupDraft) return;
@@ -200,9 +162,7 @@ export function ConversationMain({ children }: { children?: ReactNode } = {}) {
           data-testid="automation-setup-topbar"
           className={cn(
             "flex shrink-0 border-b border-border bg-canvas-base",
-            isMobile
-              ? "flex-col"
-              : "h-10 min-h-10 items-center justify-between gap-2 px-3",
+            isMobile ? "flex-col" : "h-10 min-h-10 items-center justify-between gap-2 px-3",
           )}
         >
           <div
@@ -292,194 +252,41 @@ export function ConversationMain({ children }: { children?: ReactNode } = {}) {
         </header>
       ) : null}
 
-      <div
-        ref={containerRef}
-        className={cn(
-          "flex flex-1 overflow-hidden",
-          isMobile ? "flex-col" : "transition-all duration-300 ease-in-out",
-        )}
-        // transition toggled at runtime based on drag state
-        style={
-          !isMobile
-            ? { transitionProperty: isDragging ? "none" : "all" }
-            : undefined
-        }
-      >
-        {/* Chat Panel - always mounted, styled differently for mobile/desktop.
-            Owns its own header (name + status) and gets bottom padding so the
-            chat input doesn't slam the floor. */}
-        <div
-          data-testid="conversation-chat-panel"
-          className={cn(
-            "flex flex-col bg-canvas-base overflow-hidden",
-            isMobile
-              ? cn("flex-1", showMobileAutomationForm && "hidden")
-              : cn(
-                  "min-w-0",
-                  isAutomationSetupMode &&
-                    isAutomationAgentHidden &&
-                    "pointer-events-none opacity-0",
-                  !isSecondaryDrawerOpen &&
-                    "transition-panel-width duration-300 ease-in-out",
-                ),
-          )}
-          // panel width computed at runtime by resize hook; transition toggled by drag state
-          style={
-            !isMobile
-              ? {
-                  width:
-                    isAutomationSetupMode && isAutomationAgentHidden
-                      ? "0%"
-                      : isRightPanelShown
-                        ? `${leftWidth}%`
-                        : "100%",
-                  transitionProperty:
-                    isDragging || isSecondaryDrawerOpen ? "none" : "width",
-                }
-              : undefined
-          }
-        >
-          {!isAutomationSetupMode ? (
-            <div
-              data-testid="chat-pane-header"
-              className={cn(
-                "flex h-10 min-h-10 shrink-0 items-center",
-                isSidebarRailHidden && "h-12 min-h-12 gap-2 pl-2.5",
-              )}
-            >
-              {isSidebarRailHidden ? <SidebarMobileMenuToggle /> : null}
-              <div className="min-w-0 flex-1" inert={!!children}>
-                <ConversationNameWithStatus />
-              </div>
-            </div>
-          ) : null}
-          <div className="flex-1 min-h-0 flex flex-col">
-            <ChatInterfaceWrapper
-              pendingContent={children}
-              isRightPanelShown={!isMobile && isRightPanelShown}
-              showGitControlBar={!isAutomationSetupMode}
-              showEmptyStateSuggestions={!isAutomationSetupMode}
-              composerDockTarget={composerDockTarget}
-              minimalComposer={isMobile && isAutomationSetupMode}
-              composerPlaceholder={
-                isAutomationSetupMode
-                  ? t(
-                      I18nKey.AUTOMATION_SETUP$CONVERSATION_COMPOSER_PLACEHOLDER,
-                    )
-                  : undefined
-              }
-              onDockedComposerSubmit={() => {
-                setIsAutomationAgentHidden(false);
-                setMobileAutomationView("conversation");
-              }}
-            />
-          </div>
-        </div>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Main workspace: Chat / Preview / Artifacts */}
+        {!isAutomationSetupMode ? <WorkspaceChrome /> : null}
 
-        {/* Resize Handle - only shown on desktop when right panel is visible */}
-        {!isMobile &&
-          isRightPanelShown &&
-          !(isAutomationSetupMode && isAutomationAgentHidden) && (
-            <ResizeHandle
-              onMouseDown={handleMouseDown}
-              isDragging={isDragging}
-            />
-          )}
-
-        {isMobile && automationSetupDraft ? (
+        {/* Automation setup right panel (preserved backend capability). */}
+        {isAutomationSetupMode && !isMobile && isRightPanelShown ? (
           <div
-            data-testid="automation-setup-mobile-form"
-            className={cn(
-              "relative flex min-h-0 flex-1 flex-col overflow-hidden",
-              !showMobileAutomationForm && "hidden",
-            )}
+            className="transition-all duration-300 ease-in-out overflow-hidden w-[40%]"
           >
-            <Suspense fallback={<LoadingSpinner size="small" />}>
-              <AutomationSetupPanel
-                key={conversationId}
-                draft={automationSetupDraft}
-                conversationId={conversationId}
-                conversationTags={conversation?.tags}
-                toolbarPortal={automationToolbarElement}
-                showInlineHeader={false}
-                reserveComposerSpace
-              />
-            </Suspense>
-            {showMobileAutomationForm ? (
-              <AutomationSetupDockedComposer onTarget={setComposerDockTarget} />
-            ) : null}
+            <div className="flex h-full w-full flex-col bg-surface border-l border-border">
+              {automationSetupDraft ? (
+                <Suspense fallback={<LoadingSpinner size="small" />}>
+                  <AutomationSetupPanel
+                    draft={automationSetupDraft}
+                    conversationId={conversationId}
+                    conversationTags={conversation?.tags}
+                    toolbarPortal={automationToolbarElement}
+                    showInlineHeader={false}
+                    reserveComposerSpace={showDockedComposer}
+                  />
+                </Suspense>
+              ) : null}
+              {showDockedComposer ? (
+                <AutomationSetupDockedComposer
+                  onTarget={setComposerDockTarget}
+                />
+              ) : null}
+            </div>
           </div>
         ) : null}
-
-        {/* Right panel: desktop side drawer. Mobile opens Files/Tools via /panel route. */}
-        {!isMobile && (
-          <div
-            data-testid="conversation-right-panel"
-            className={cn(
-              "transition-all duration-300 ease-in-out overflow-hidden",
-              getDesktopTabPanelClass(isRightPanelShown),
-            )}
-            style={{
-              width: isRightPanelShown
-                ? isAutomationSetupMode && isAutomationAgentHidden
-                  ? "100%"
-                  : `${rightWidth}%`
-                : "0%",
-              transitionProperty: isDragging ? "opacity, transform" : "all",
-            }}
-          >
-            <div className="flex h-full w-full flex-col">
-              <div
-                className={cn(
-                  "relative flex flex-col flex-1 min-h-0 bg-surface overflow-hidden",
-                  !(isAutomationSetupMode && isAutomationAgentHidden) &&
-                    "border-l border-border",
-                )}
-              >
-                {automationSetupDraft ? (
-                  <Suspense fallback={<LoadingSpinner size="small" />}>
-                    <AutomationSetupPanel
-                      draft={automationSetupDraft}
-                      conversationId={conversationId}
-                      conversationTags={conversation?.tags}
-                      toolbarPortal={automationToolbarElement}
-                      showInlineHeader={false}
-                      reserveComposerSpace={showDockedComposer}
-                    />
-                  </Suspense>
-                ) : shouldMountTabs ? (
-                  <>
-                    <div
-                      data-testid="tabs-pane-header"
-                      className="flex shrink-0 flex-col border-b border-border"
-                    >
-                      <ConversationTabs isPanelResizing={isDragging} />
-                    </div>
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <ConversationTabContent />
-                    </div>
-                  </>
-                ) : null}
-                {showDockedComposer ? (
-                  // The setup form scrolls in a padded column with a stable
-                  // scrollbar gutter. This overlay has to be a scroll container
-                  // with the same gutter, or the composer centers in a wider
-                  // box and sits off the fields.
-                  <AutomationSetupDockedComposer
-                    onTarget={setComposerDockTarget}
-                  />
-                ) : null}
-              </div>
-            </div>
-          </div>
-        )}
-        {!children && (
-          <ConversationOverviewDrawer
-            isMobile={isMobile}
-            resizeContainerRef={containerRef}
-          />
-        )}
       </div>
+
+      {!isAutomationSetupMode && !children && (
+        <ConversationOverviewDrawer isMobile={isMobile} />
+      )}
     </div>
   );
 }

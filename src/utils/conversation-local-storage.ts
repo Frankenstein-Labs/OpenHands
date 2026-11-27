@@ -79,27 +79,22 @@ const DEFAULT_CONVERSATION_STATE: ConversationState = {
 const VALID_CONVERSATION_TABS: ReadonlySet<ConversationTab> = new Set([
   "files",
   "commits",
-  "browser",
   "terminal",
   "planner",
   "tasklist",
   "usage",
 ]);
 
-// Tab keys that *used to* exist and were removed during the Files tab
-// refactor. We strip these out of any persisted state on read so that
-// returning users don't keep ghost entries (in `selectedTab` or
-// `unpinnedTabs`) forever — the UI has no way to surface them again to
-// be re-pinned or re-selected. We deliberately use an explicit denylist
-// here rather than a strict "whitelist against VALID_CONVERSATION_TABS"
-// filter because `unpinnedTabs` is typed `string[]` and other parts of
-// the app legitimately store arbitrary tab keys in it (sub-conversation
-// tab ids etc.).
+// Tab keys that *used to* exist and were removed. We strip these out of
+// any persisted state on read so that returning users don't keep ghost
+// entries (in `selectedTab` or `unpinnedTabs`) forever — the UI has no way
+// to surface them again to be re-pinned or re-selected.
 const REMOVED_CONVERSATION_TABS: ReadonlySet<string> = new Set([
   "editor",
   "served",
   "app",
   "vscode",
+  "browser",
 ]);
 
 const VALID_VIEW_MODES: ReadonlySet<ViewMode> = new Set(["rich", "plain"]);

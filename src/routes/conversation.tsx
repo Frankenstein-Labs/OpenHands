@@ -27,9 +27,9 @@ import { useTaskPollingController } from "#/hooks/query/use-task-polling";
 
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { useIsAuthed } from "#/hooks/query/use-is-authed";
-import { ConversationMain } from "#/components/features/conversation/conversation-main/conversation-main";
 import { ConversationMobilePanelPage } from "#/components/features/conversation/conversation-main/conversation-mobile-panel-page";
 import { ConversationOverviewDrawerProvider } from "#/components/features/conversation/conversation-overview-drawer-context";
+import { WorkspaceLayout } from "#/components/features/workspace/workspace-layout";
 
 import { WebSocketProviderWrapper } from "#/contexts/websocket-provider-wrapper";
 import { useErrorMessageStore } from "#/stores/error-message-store";
@@ -245,7 +245,7 @@ function AppContent() {
               }
             />
           ) : (
-            <ConversationMain />
+            <WorkspaceLayout />
           )}
         </div>
       </ConversationOverviewDrawerProvider>

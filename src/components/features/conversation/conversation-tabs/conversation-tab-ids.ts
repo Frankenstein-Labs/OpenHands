@@ -17,6 +17,5 @@ export const CONVERSATION_TAB_LABEL_KEYS: Record<ConversationTab, I18nKey> = {
   planner: I18nKey.COMMON$PLANNER,
   tasklist: I18nKey.COMMON$TASK_LIST,
   terminal: I18nKey.COMMON$TERMINAL,
-  browser: I18nKey.COMMON$BROWSER,
   usage: I18nKey.COMMON$USAGE,
 };
